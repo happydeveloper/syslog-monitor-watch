@@ -1,0 +1,41 @@
+Jul 25 23:10:01 server01 ssh: Failed password for user admin from 192.168.1.100 port 22 ssh2
+Jul 25 23:10:02 server01 systemd: Starting backup service
+Jul 25 23:10:03 server01 kernel: Error loading module xyz
+Jul 25 23:10:04 server01 apache2: Warning: deprecated configuration
+Jul 25 23:10:05 server01 mysql: Connection established successfully
+Jul 25 23:10:06 server01 ssh: Authentication failed for user root from 192.168.1.200
+Jul 25 23:10:07 server01 cron: Critical disk space warning
+Jul 25 23:10:08 server01 nginx: Request processed normally 
+Jul 25 23:10:03 server01 kernel: Error loading module xyz
+Jul 25 23:10:03 server01 kernel: Error loading module xyz
+Jul 25 23:10:01 server01 ssh: Failed password for user admin from 192.168.1.100 port 22 ssh2
+Jul 25 23:10:01 server01 ssh: Failed password for user admin from 192.168.1.100 port 22 ssh2
+Jul 25 23:10:02 server01 systemd: Starting backup service
+Jul 25 23:10:03 server01 kernel: Error loading module xyz
+Jul 25 23:10:04 server01 apache2: Warning: deprecated configuration
+Jul 25 23:10:05 server01 mysql: Connection established successfully
+Jul 25 23:10:06 server01 ssh: Authentication failed for user root from 192.168.1.200
+Jul 25 23:10:07 server01 cron: Critical disk space warning
+Jul 25 23:10:08 server01 nginx: Request processed normally 
+Jul 25 23:10:03 server01 kernel: Error loading module xyz
+Jul 25 23:10:03 server01 kernel: Error loading module xyz
+Jul 25 23:10:01 server01 ssh: Failed password for user admin from 192.168.1.100 port 22 ssh2
+Jul 25 23:10:03 server01 kernel: Error loading module xyz
+Jul 25 23:10:08 server01 nginx: Request processed normally 
+
+
+
+Jul 25 23:15:01 server01 ssh: Critical authentication failure from attacker
+Jul 25 23:15:02 server01 nginx: Error 500 internal server error
+Jul 25 23:20:01 server01 mysql: Error connecting to database - connection timeout
+Jul 25 23:20:02 server01 ssh: Critical security breach detected - multiple failed login attempts
+Jul 25 23:20:02 server01 ssh: Critical security breach detected - multiple failed login attempts
+Jul 25 23:20:02 server01 ssh: Critical security breach detected - multiple failed login attempts
+Jul 25 23:20:02 server01 ssh: Critical security breach detected - multiple failed login attempts
+Jul 25 23:20:02 server01 ssh: Critical security breach detected - multiple failed login attempts
+Jul 25 23:35:01 server01 apache: Error 500 - Internal server error occurred
+Jul 25 23:35:01 server01 apache: Error 500 - Internal server error occurred
+Jul 26 00:05:30 server01 database: Error connecting to MySQL server - connection timeout
+Jul 26 00:09:01 webserver nginx: Error 502 - Bad Gateway from upstream server
+Jul 26 00:09:10 database mysql: Critical database failure - all connections lost
+Jul 26 00:13:01 server01 app: Error loading configuration file - file not found
