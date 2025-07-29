@@ -1,0 +1,83 @@
+{
+  "ai_analysis": {
+    "enabled": false,
+    "alert_threshold": 7.0,
+    "time_window_minutes": 5,
+    "max_buffer_size": 1000,
+    "patterns": {
+      "sql_injection": {
+        "severity": 9.0,
+        "enabled": true
+      },
+      "brute_force": {
+        "severity": 7.5,
+        "enabled": true
+      },
+      "memory_leak": {
+        "severity": 8.0,
+        "enabled": true
+      },
+      "database_issues": {
+        "severity": 8.5,
+        "enabled": true
+      }
+    }
+  },
+  "system_monitoring": {
+    "enabled": false,
+    "interval_minutes": 5,
+    "thresholds": {
+      "cpu_percent": 80.0,
+      "memory_percent": 85.0,
+      "disk_percent": 90.0,
+      "cpu_temperature": 75.0,
+      "load_average_multiplier": 2.0,
+      "swap_percent": 50.0,
+      "inode_percent": 90.0
+    },
+    "alerts": {
+      "email_enabled": true,
+      "slack_enabled": true,
+      "critical_immediate": true
+    }
+  },
+  "log_parsing": {
+    "auto_detect": true,
+    "supported_types": [
+      "apache",
+      "nginx", 
+      "mysql",
+      "postgresql",
+      "application"
+    ],
+    "custom_patterns": {
+      "web_attack": "(?i)(union\\s+select|script\\s*>|javascript:|eval\\()",
+      "privilege_escalation": "(?i)(sudo\\s+su|root\\s+login|privilege\\s+escalation)"
+    }
+  },
+  "notification": {
+    "email": {
+      "enabled": true,
+      "rate_limit_minutes": 5,
+      "recipients": [
+        "robot@lambda-x.ai",
+        "enfn2001@gmail.com"
+      ]
+    },
+    "slack": {
+      "enabled": false,
+      "rate_limit_minutes": 2,
+      "channels": {
+        "critical": "#alerts-critical",
+        "warning": "#alerts-warning",
+        "info": "#alerts-info"
+      }
+    }
+  },
+  "security": {
+    "failed_login_threshold": 5,
+    "suspicious_ip_tracking": true,
+    "anomaly_score_threshold": 7.0,
+    "prediction_confidence_threshold": 0.7
+  }
+} 

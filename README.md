@@ -1,6 +1,8 @@
-# Syslog Monitor
+# AI-Powered Syslog Monitor
 
-리눅스 시스템의 syslog를 실시간으로 감시하고 **여러 명에게 동시 이메일 알림**을 보내는 Go 언어 기반 서비스입니다.
+**🤖 AI 기반 로그 분석 및 시스템 모니터링 도구**
+
+리눅스와 macOS 시스템의 syslog를 실시간으로 감시하고 AI 기반 이상 징후 분석, 시스템 메트릭 모니터링, **다중 플랫폼 알림**을 제공하는 차세대 모니터링 솔루션입니다.
 
 ## 목차
 - [기능](#기능)
@@ -16,14 +18,41 @@
 
 ## 기능
 
+### 🔍 기본 모니터링
 - **실시간 로그 감시**: syslog 파일을 실시간으로 모니터링
 - **키워드 필터링**: 특정 키워드가 포함된 로그만 표시
 - **정규식 필터**: 정규식을 사용한 로그 제외 필터링
 - **로그 레벨 분류**: ERROR, WARNING, CRITICAL, INFO 자동 분류
 - **파일 출력**: 필터링된 로그를 파일로 저장
+
+### 🤖 AI 기반 로그 분석
+- **이상 패턴 감지**: SQL 인젝션, 무차별 대입 공격, 메모리 누수 등 자동 감지
+- **예측 분석**: 시스템 장애 및 보안 위협 사전 예측
+- **위협 레벨 평가**: 실시간 위험도 점수 계산 (0-10점)
+- **다중 로그 포맷 지원**: Apache, Nginx, MySQL, PostgreSQL, 애플리케이션 로그
+- **시간 패턴 분석**: 야간/주말 비정상 활동 감지
+- **빈도 분석**: 비정상적인 로그 급증 패턴 감지
+
+### 🖥️ 시스템 메트릭 모니터링
+- **실시간 시스템 감시**: CPU, 메모리, 디스크, 온도 모니터링
+- **임계값 알림**: 설정 가능한 임계값 초과 시 즉시 알림
+- **로드 평균 추적**: 시스템 부하 상태 실시간 모니터링
+- **네트워크 상태**: 패킷 손실, 에러율 추적
+- **디스크 공간**: 사용률 및 inode 사용률 모니터링
+- **프로세스 상태**: 실행 중인 프로세스 수 추적
+
+### 📧 다중 알림 시스템
 - **이메일 알림**: 에러/크리티컬 로그 발생 시 자동 이메일 전송
+- **Slack 통합**: 실시간 Slack 채널 알림
 - **Gmail 지원**: Gmail SMTP를 통한 이메일 알림
 - **환경변수 설정**: 환경변수를 통한 간편한 이메일 설정
+- **AI 분석 결과 알림**: 이상 징후 감지 시 상세 분석 보고서 전송
+- **시스템 알림**: 시스템 임계값 초과 시 즉시 알림
+
+### 🔐 보안 기능
+- **로그인 모니터링**: SSH, sudo, 웹 로그인 패턴 감지
+- **보안 위협 탐지**: 권한 상승, 무차별 대입 공격 등
+- **IP 추적**: 의심스러운 IP 주소 자동 추적
 - **신호 처리**: Ctrl+C로 안전한 종료
 
 ## 빌드 방법
@@ -138,13 +167,37 @@ export SYSLOG_SMTP_PASSWORD="generated-app-password"
 
 ## 빠른 시작 (Quick Start)
 
-### 🚀 즉시 실행 (기본 설정)
+### 🍎 macOS 사용자 (권장)
+```bash
+# 원클릭 설치 (AI 분석 + 시스템 모니터링 포함)
+./install-macos.sh
+
+# 또는 수동 설치
+make build-macos && sudo make install-macos
+
+# AI 기반 모니터링 시작
+syslog-monitor -ai-analysis -system-monitor
+```
+
+### 🐧 Linux 사용자
 ```bash
 # 빌드
+make build-linux
+
+# AI 기반 모니터링 시작  
+./syslog-monitor_linux -ai-analysis -system-monitor
+```
+
+### 🚀 즉시 실행 (기본 설정)
+```bash
+# 현재 플랫폼용 빌드
 make build
 
 # 기본 설정으로 즉시 시작 (robot@lambda-x.ai, enfn2001@gmail.com에게 자동 알림)
 ./syslog-monitor
+
+# AI 분석 + 시스템 모니터링 활성화
+./syslog-monitor -ai-analysis -system-monitor
 
 # 테스트 이메일 전송
 ./syslog-monitor -test-email
@@ -166,7 +219,31 @@ make build
 
 ## 상세 사용법
 
-### 1. 기본 syslog 감시
+### 1. 🤖 AI 기반 로그 분석
+```bash
+# AI 이상 징후 감지 활성화
+./syslog-monitor -ai-analysis
+
+# 특정 로그 타입으로 AI 분석
+./syslog-monitor -file=/var/log/nginx/access.log -log-type=nginx -ai-analysis
+
+# 데이터베이스 로그 AI 분석
+./syslog-monitor -file=/var/log/mysql/error.log -log-type=mysql -ai-analysis
+```
+
+### 2. 🖥️ 시스템 메트릭 모니터링
+```bash
+# 시스템 리소스 모니터링 활성화
+./syslog-monitor -system-monitor
+
+# AI 분석 + 시스템 모니터링 통합
+./syslog-monitor -ai-analysis -system-monitor
+
+# macOS 특화 모니터링 (배터리, APFS, 온도)
+./syslog-monitor -ai-analysis -system-monitor -file=/var/log/system.log
+```
+
+### 3. 🔍 기본 syslog 감시
 ```bash
 # 기본 syslog 파일 감시 (이메일 알림 포함)
 ./syslog-monitor
@@ -176,14 +253,20 @@ make build
 
 # 특정 키워드만 감시
 ./syslog-monitor -keywords=error,critical,failed,warning
+
+# 완전한 보안 모니터링
+./syslog-monitor -login-watch -ai-analysis -keywords=failed,error,critical
 ```
 
-### 2. 이메일 알림 설정
+### 4. 📧 이메일 알림 설정
 
 #### 방법 1: 기본 설정 사용 (추천)
 ```bash
 # 자동으로 robot@lambda-x.ai, enfn2001@gmail.com에게 알림
 ./syslog-monitor -keywords=error,critical,failed
+
+# AI 분석 결과 알림 포함
+./syslog-monitor -ai-analysis -system-monitor
 ```
 
 #### 방법 2: 여러 명 커스텀 설정
@@ -210,15 +293,39 @@ export SYSLOG_SMTP_PASSWORD="your-app-password"
 ./syslog-monitor
 ```
 
-### 3. 실제 운영 시나리오
+### 5. 🏢 실제 운영 시나리오
 
-#### 보안 감시 + 다중 알림
+#### 🛡️ 통합 보안 모니터링 (AI + 시스템)
 ```bash
 ./syslog-monitor \
+  -ai-analysis \
+  -system-monitor \
+  -login-watch \
   -file=/var/log/auth.log \
   -keywords=failed,unauthorized,invalid,breach \
   -email-to="security@company.com,admin@company.com,ciso@company.com" \
+  -slack-webhook="https://hooks.slack.com/..." \
   -output=security_alerts.log
+```
+
+#### 🍎 macOS 서버 모니터링
+```bash
+./syslog-monitor \
+  -ai-analysis \
+  -system-monitor \
+  -file=/var/log/system.log \
+  -keywords=error,warning,failed \
+  -email-to="ops@company.com,admin@company.com"
+```
+
+#### 🌐 웹서버 성능 + 보안 모니터링
+```bash
+./syslog-monitor \
+  -file=/var/log/nginx/access.log \
+  -log-type=nginx \
+  -ai-analysis \
+  -keywords=error,502,503,504 \
+  -email-to="webteam@company.com,ops@company.com"
 ```
 
 #### 웹서버 에러 감시

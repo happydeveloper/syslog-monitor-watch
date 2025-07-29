@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"regexp"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -59,16 +60,21 @@ type SlackField struct {
 }
 
 type SyslogMonitor struct {
-	logFile     string
-	filters     []string
-	keywords    []string
-	outputFile  string
-	logger      *logrus.Logger
-	emailConfig *EmailConfig
-	slackConfig *SlackConfig
+	logFile       string
+	filters       []string
+	keywords      []string
+	outputFile    string
+	logger        *logrus.Logger
+	emailConfig   *EmailConfig
+	slackConfig   *SlackConfig
+	aiAnalyzer    *AIAnalyzer
+	systemMonitor *SystemMonitor
+	logParser     *LogParserManager
+	aiEnabled     bool
+	systemEnabled bool
 }
 
-func NewSyslogMonitor(logFile, outputFile string, filters, keywords []string, emailConfig *EmailConfig, slackConfig *SlackConfig) *SyslogMonitor {
+func NewSyslogMonitor(logFile, outputFile string, filters, keywords []string, emailConfig *EmailConfig, slackConfig *SlackConfig, aiEnabled, systemEnabled bool) *SyslogMonitor {
 	logger := logrus.New()
 	logger.SetLevel(logrus.InfoLevel)
 	logger.SetFormatter(&logrus.TextFormatter{
@@ -83,14 +89,30 @@ func NewSyslogMonitor(logFile, outputFile string, filters, keywords []string, em
 		}
 	}
 
+	var aiAnalyzer *AIAnalyzer
+	var systemMonitor *SystemMonitor
+	
+	if aiEnabled {
+		aiAnalyzer = NewAIAnalyzer()
+	}
+	
+	if systemEnabled {
+		systemMonitor = NewSystemMonitor(time.Minute * 5) // 5분 간격으로 시스템 모니터링
+	}
+
 	return &SyslogMonitor{
-		logFile:     logFile,
-		filters:     filters,
-		keywords:    keywords,
-		outputFile:  outputFile,
-		logger:      logger,
-		emailConfig: emailConfig,
-		slackConfig: slackConfig,
+		logFile:       logFile,
+		filters:       filters,
+		keywords:      keywords,
+		outputFile:    outputFile,
+		logger:        logger,
+		emailConfig:   emailConfig,
+		slackConfig:   slackConfig,
+		aiAnalyzer:    aiAnalyzer,
+		systemMonitor: systemMonitor,
+		logParser:     NewLogParserManager(),
+		aiEnabled:     aiEnabled,
+		systemEnabled: systemEnabled,
 	}
 }
 
@@ -446,8 +468,25 @@ func (sm *SyslogMonitor) processLine(line string) {
 		return
 	}
 
-	// 로그 파싱
+	// 기본 로그 파싱
 	parsed := sm.parseSyslogLine(line)
+	
+	// 고급 로그 파싱 (AI 분석 활성화된 경우)
+	var parsedLog *ParsedLog
+	if sm.aiEnabled {
+		parsedLog = sm.logParser.ParseLog(line)
+	}
+
+	// AI 분석 수행
+	var aiResult *AIAnalysisResult
+	if sm.aiEnabled && sm.aiAnalyzer != nil {
+		aiResult = sm.aiAnalyzer.AnalyzeLog(line, parsed)
+		
+		// AI 분석 결과에 따른 알림
+		if aiResult.AnomalyScore >= sm.aiAnalyzer.alertThreshold {
+			sm.sendAIAlert(aiResult, parsedLog)
+		}
+	}
 
 	// 로그인 패턴 감지 (우선 처리)
 	if isLogin, loginInfo := sm.detectLoginPattern(line); isLogin {
@@ -585,10 +624,55 @@ func (sm *SyslogMonitor) processLine(line string) {
 func (sm *SyslogMonitor) Start() error {
 	// syslog 파일이 존재하는지 확인
 	if _, err := os.Stat(sm.logFile); os.IsNotExist(err) {
-		return fmt.Errorf("syslog file not found: %s", sm.logFile)
+		if runtime.GOOS == "darwin" {
+			// macOS 사용자를 위한 상세한 안내
+			sm.logger.Errorf("❌ 로그 파일을 찾을 수 없습니다: %s", sm.logFile)
+			sm.logger.Info("🍎 macOS에서 사용 가능한 로그 파일들:")
+			
+			recommendations := getMacOSLogRecommendations()
+			for _, rec := range recommendations {
+				if rec == "" {
+					sm.logger.Info("")
+				} else {
+					sm.logger.Infof("   %s", rec)
+				}
+			}
+			
+			sm.logger.Info("")
+			sm.logger.Info("💡 사용법 예시:")
+			sm.logger.Info("   # 설치 로그 모니터링")
+			sm.logger.Info("   ./syslog-monitor -file=/var/log/install.log")
+			sm.logger.Info("")
+			sm.logger.Info("   # WiFi 로그 모니터링")  
+			sm.logger.Info("   ./syslog-monitor -file=/var/log/wifi.log")
+			sm.logger.Info("")
+			sm.logger.Info("   # 실시간 시스템 로그 (sudo 필요)")
+			sm.logger.Info("   sudo log stream | ./syslog-monitor -file=/dev/stdin")
+			
+			return fmt.Errorf("macOS에서는 다른 로그 파일 경로를 사용해주세요")
+		} else {
+			return fmt.Errorf("syslog file not found: %s", sm.logFile)
+		}
 	}
 
 	sm.logger.Infof("Starting syslog monitor for file: %s", sm.logFile)
+	
+	// AI 분석 활성화 메시지
+	if sm.aiEnabled {
+		sm.logger.Infof("🤖 AI 로그 분석이 활성화되었습니다")
+		sm.logger.Infof(sm.aiAnalyzer.GetAnalysisReport())
+	}
+	
+	// 시스템 모니터링 시작
+	if sm.systemEnabled && sm.systemMonitor != nil {
+		sm.logger.Infof("🖥️  시스템 모니터링을 시작합니다")
+		sm.systemMonitor.Start()
+		
+		// 시스템 알림 처리 고루틴
+		go sm.handleSystemAlerts()
+		
+		sm.logger.Infof(sm.systemMonitor.GetSystemReport())
+	}
 
 	// tail을 사용해 파일을 실시간으로 감시
 	t, err := tail.TailFile(sm.logFile, tail.Config{
@@ -624,9 +708,251 @@ func (sm *SyslogMonitor) Start() error {
 	}
 }
 
+// sendAIAlert AI 분석 결과 알림 전송
+func (sm *SyslogMonitor) sendAIAlert(aiResult *AIAnalysisResult, parsedLog *ParsedLog) {
+	// 이메일 알림
+	if sm.emailConfig.Enabled {
+		subject := fmt.Sprintf("[AI ALERT %s] %s", aiResult.ThreatLevel, "이상 징후 감지")
+		
+		body := fmt.Sprintf(`🤖 AI 로그 분석 결과
+
+위협 레벨: %s
+이상 점수: %.2f/10
+신뢰도: %.1f%%
+감지 시간: %s
+
+📊 분석 결과:
+- 영향받는 시스템: %s
+
+🔮 예측 결과:`,
+			aiResult.ThreatLevel,
+			aiResult.AnomalyScore,
+			aiResult.Confidence*100,
+			aiResult.Timestamp.Format("2006-01-02 15:04:05"),
+			strings.Join(aiResult.AffectedSystems, ", "),
+		)
+		
+		for _, prediction := range aiResult.Predictions {
+			body += fmt.Sprintf(`
+- %s (확률: %.0f%%, 시간: %s)
+  영향: %s`, prediction.Event, prediction.Probability*100, prediction.TimeFrame, prediction.Impact)
+		}
+		
+		body += "\n\n💡 추천 조치사항:"
+		for _, recommendation := range aiResult.Recommendations {
+			body += fmt.Sprintf("\n- %s", recommendation)
+		}
+		
+		if parsedLog != nil {
+			body += fmt.Sprintf(`
+
+📋 로그 상세 정보:
+- 로그 타입: %s
+- 레벨: %s
+- 메시지: %s
+- 원본: %s`, parsedLog.LogType, parsedLog.Level, parsedLog.Message, parsedLog.RawLog)
+		}
+		
+		sm.logger.Infof("🚨 Sending AI alert to: %s", strings.Join(sm.emailConfig.To, ", "))
+		go func() {
+			if err := sm.sendEmail(subject, body); err != nil {
+				sm.logger.Errorf("❌ Failed to send AI alert email: %v", err)
+			}
+		}()
+	}
+	
+	// 슬랙 알림
+	if sm.slackConfig.Enabled {
+		color := "warning"
+		if aiResult.AnomalyScore >= 8.0 {
+			color = "danger"
+		}
+		
+		fields := []SlackField{
+			{Title: "위협 레벨", Value: aiResult.ThreatLevel, Short: true},
+			{Title: "이상 점수", Value: fmt.Sprintf("%.2f/10", aiResult.AnomalyScore), Short: true},
+			{Title: "신뢰도", Value: fmt.Sprintf("%.1f%%", aiResult.Confidence*100), Short: true},
+			{Title: "영향 시스템", Value: strings.Join(aiResult.AffectedSystems, ", "), Short: false},
+		}
+		
+		// 예측 결과 추가
+		if len(aiResult.Predictions) > 0 {
+			predictionText := ""
+			for _, prediction := range aiResult.Predictions {
+				predictionText += fmt.Sprintf("• %s (%.0f%%)\n", prediction.Event, prediction.Probability*100)
+			}
+			fields = append(fields, SlackField{Title: "예측", Value: predictionText, Short: false})
+		}
+		
+		slackMsg := SlackMessage{
+			Text:      fmt.Sprintf("🤖 *AI 이상 징후 감지* %s", aiResult.ThreatLevel),
+			IconEmoji: ":robot_face:",
+			Username:  "AI Log Analyzer",
+			Attachments: []SlackAttachment{
+				{
+					Color:     color,
+					Title:     "AI 분석 결과",
+					Fields:    fields,
+					Timestamp: time.Now().Unix(),
+				},
+			},
+		}
+		
+		go func() {
+			if err := sm.sendSlackMessage(slackMsg); err != nil {
+				sm.logger.Errorf("❌ Failed to send AI alert to Slack: %v", err)
+			}
+		}()
+	}
+}
+
+// handleSystemAlerts 시스템 알림 처리
+func (sm *SyslogMonitor) handleSystemAlerts() {
+	for alert := range sm.systemMonitor.GetAlertChannel() {
+		sm.logger.WithFields(logrus.Fields{
+			"level": "SYSTEM_ALERT",
+			"type":  alert.Type,
+			"value": alert.Value,
+		}).Warnf("System alert: %s", alert.Message)
+		
+		// 이메일 알림
+		if sm.emailConfig.Enabled {
+			subject := fmt.Sprintf("[SYSTEM ALERT %s] %s", alert.Level, alert.Type)
+			
+			body := fmt.Sprintf(`🖥️  시스템 알림
+
+알림 레벨: %s
+타입: %s
+메시지: %s
+현재 값: %.2f
+임계값: %.2f
+시간: %s
+
+💡 추천 조치사항:`,
+				alert.Level,
+				alert.Type,
+				alert.Message,
+				alert.Value,
+				alert.Threshold,
+				alert.Timestamp.Format("2006-01-02 15:04:05"),
+			)
+			
+			for _, suggestion := range alert.Suggestions {
+				body += fmt.Sprintf("\n- %s", suggestion)
+			}
+			
+			body += fmt.Sprintf(`
+
+📊 시스템 상태:
+- CPU 사용률: %.1f%%
+- 메모리 사용률: %.1f%%
+- 로드 평균: %.2f`,
+				alert.Metrics.CPU.UsagePercent,
+				alert.Metrics.Memory.UsagePercent,
+				alert.Metrics.LoadAverage.Load1Min,
+			)
+			
+			sm.logger.Infof("🖥️  Sending system alert to: %s", strings.Join(sm.emailConfig.To, ", "))
+			go func() {
+				if err := sm.sendEmail(subject, body); err != nil {
+					sm.logger.Errorf("❌ Failed to send system alert email: %v", err)
+				}
+			}()
+		}
+		
+		// 슬랙 알림
+		if sm.slackConfig.Enabled {
+			color := "warning"
+			if alert.Level == "CRITICAL" {
+				color = "danger"
+			} else if alert.Level == "MEDIUM" {
+				color = "warning"
+			} else {
+				color = "good"
+			}
+			
+			fields := []SlackField{
+				{Title: "알림 레벨", Value: alert.Level, Short: true},
+				{Title: "타입", Value: alert.Type, Short: true},
+				{Title: "현재 값", Value: fmt.Sprintf("%.2f", alert.Value), Short: true},
+				{Title: "임계값", Value: fmt.Sprintf("%.2f", alert.Threshold), Short: true},
+				{Title: "CPU", Value: fmt.Sprintf("%.1f%%", alert.Metrics.CPU.UsagePercent), Short: true},
+				{Title: "메모리", Value: fmt.Sprintf("%.1f%%", alert.Metrics.Memory.UsagePercent), Short: true},
+			}
+			
+			slackMsg := SlackMessage{
+				Text:      fmt.Sprintf("🖥️  *시스템 알림* - %s", alert.Message),
+				IconEmoji: ":warning:",
+				Username:  "System Monitor",
+				Attachments: []SlackAttachment{
+					{
+						Color:     color,
+						Title:     fmt.Sprintf("%s Alert", alert.Type),
+						Fields:    fields,
+						Timestamp: time.Now().Unix(),
+					},
+				},
+			}
+			
+			go func() {
+				if err := sm.sendSlackMessage(slackMsg); err != nil {
+					sm.logger.Errorf("❌ Failed to send system alert to Slack: %v", err)
+				}
+			}()
+		}
+	}
+}
+
+// getDefaultLogFile 운영체제에 따른 기본 로그 파일 경로 반환
+func getDefaultLogFile() string {
+	switch runtime.GOOS {
+	case "darwin": // macOS
+		// macOS에서 일반적으로 접근 가능한 로그 파일들을 순서대로 확인
+		macOSLogFiles := []string{
+			"/var/log/system.log",    // macOS 주요 시스템 로그
+			"/var/log/install.log",   // 설치 로그
+			"/var/log/wifi.log",      // WiFi 로그
+			"/usr/local/var/log/messages", // Homebrew 환경
+		}
+		
+		for _, logFile := range macOSLogFiles {
+			if _, err := os.Stat(logFile); err == nil {
+				return logFile
+			}
+		}
+		
+		// 기본값으로 system.log 반환 (존재하지 않아도)
+		return "/var/log/system.log"
+		
+	case "linux":
+		return "/var/log/syslog"
+		
+	default:
+		return "/var/log/syslog"
+	}
+}
+
+// getMacOSLogRecommendations macOS 사용자를 위한 로그 파일 추천
+func getMacOSLogRecommendations() []string {
+	return []string{
+		"/var/log/system.log     # 주요 시스템 로그 (macOS Monterey 이전)",
+		"/var/log/install.log    # 패키지 설치 로그",
+		"/var/log/wifi.log       # WiFi 연결 로그",
+		"/var/log/kernel.log     # 커널 로그",
+		"/var/log/fsck_hfs.log   # 파일시스템 체크 로그",
+		"",
+		"💡 macOS Big Sur/Monterey 이후:",
+		"   sudo log show --predicate 'process == \"kernel\"' --last 1h",
+		"   sudo log show --predicate 'eventMessage contains \"error\"' --last 1h",
+		"   sudo log stream --predicate 'process == \"syslogd\"'",
+	}
+}
+
 func main() {
+	defaultLogFile := getDefaultLogFile()
+	
 	var (
-		logFile       = flag.String("file", "/var/log/syslog", "Path to syslog file")
+		logFile       = flag.String("file", defaultLogFile, "Path to syslog file")
 		outputFile    = flag.String("output", "", "Output file for filtered logs (default: stdout)")
 		filterList    = flag.String("filters", "", "Comma-separated list of regex filters to exclude")
 		keywordList   = flag.String("keywords", "", "Comma-separated list of keywords to include")
@@ -643,6 +969,9 @@ func main() {
 		slackUsername = flag.String("slack-username", "Syslog Monitor", "Slack bot username")
 		testSlack     = flag.Bool("test-slack", false, "Send test Slack message and exit")
 		loginWatch    = flag.Bool("login-watch", false, "Enable login monitoring (SSH, sudo, web)")
+		aiEnabled     = flag.Bool("ai-analysis", false, "Enable AI-based log analysis and anomaly detection")
+		systemEnabled = flag.Bool("system-monitor", false, "Enable system metrics monitoring (CPU, memory, disk, temperature)")
+		_ = flag.String("log-type", "auto", "Log type for parsing (auto, apache, nginx, mysql, postgresql, application)") // Reserved for future use
 	)
 	flag.Parse()
 
@@ -732,6 +1061,14 @@ func main() {
 		fmt.Println("  export SYSLOG_SMTP_PASSWORD=yourapppassword")
 		fmt.Println("  ./syslog-monitor")
 		fmt.Println()
+		if runtime.GOOS == "darwin" {
+			fmt.Println("  # macOS specific examples")
+			fmt.Println("  ./syslog-monitor -file=/var/log/system.log -ai-analysis")
+			fmt.Println("  ./syslog-monitor -file=/var/log/install.log -keywords=error")
+			fmt.Println("  ./syslog-monitor -file=/var/log/wifi.log -system-monitor")
+			fmt.Println("  sudo log stream | ./syslog-monitor -file=/dev/stdin -ai-analysis")
+		}
+		fmt.Println()
 		fmt.Println("  # Test email configuration (multiple recipients)")
 		fmt.Println("  ./syslog-monitor -test-email -email-to=\"user1@test.com,user2@test.com\"")
 		fmt.Println()
@@ -743,6 +1080,18 @@ func main() {
 		fmt.Println()
 		fmt.Println("  # Test Slack integration")
 		fmt.Println("  ./syslog-monitor -test-slack -slack-webhook=https://hooks.slack.com/...")
+		fmt.Println()
+		fmt.Println("  # AI-powered log analysis with system monitoring")
+		fmt.Println("  ./syslog-monitor -ai-analysis -system-monitor")
+		fmt.Println()
+		fmt.Println("  # Monitor web server logs with AI analysis")
+		fmt.Println("  ./syslog-monitor -file=/var/log/nginx/access.log -log-type=nginx -ai-analysis")
+		fmt.Println()
+		fmt.Println("  # Database log monitoring with anomaly detection")
+		fmt.Println("  ./syslog-monitor -file=/var/log/mysql/error.log -log-type=mysql -ai-analysis")
+		fmt.Println()
+		fmt.Println("  # Complete monitoring setup")
+		fmt.Println("  ./syslog-monitor -ai-analysis -system-monitor -login-watch -slack-webhook=URL")
 		fmt.Println()
 		fmt.Println("Environment Variables:")
 		fmt.Println("  SYSLOG_EMAIL_TO        - Email addresses to send alerts (comma-separated)")
@@ -860,6 +1209,26 @@ func main() {
 	if *loginWatch {
 		fmt.Printf("👁️  Login monitoring enabled (SSH, sudo, web login detection)\n")
 	}
+	
+	// AI 분석 상태 메시지
+	if *aiEnabled {
+		fmt.Printf("🤖 AI log analysis enabled\n")
+		fmt.Printf("    🔍 Anomaly detection and prediction\n")
+		fmt.Printf("    📊 Pattern recognition and threat assessment\n")
+		fmt.Printf("    🎯 Supported log types: apache, nginx, mysql, postgresql, application\n")
+	} else {
+		fmt.Printf("🤖 AI analysis disabled. Use -ai-analysis to enable.\n")
+	}
+	
+	// 시스템 모니터링 상태 메시지
+	if *systemEnabled {
+		fmt.Printf("🖥️  System monitoring enabled\n")
+		fmt.Printf("    📈 CPU, memory, disk, temperature monitoring\n")
+		fmt.Printf("    ⚠️  Real-time alerts for system thresholds\n")
+		fmt.Printf("    🔄 5-minute monitoring interval\n")
+	} else {
+		fmt.Printf("🖥️  System monitoring disabled. Use -system-monitor to enable.\n")
+	}
 
 	// 테스트 슬랙 전송
 	if *testSlack {
@@ -871,7 +1240,7 @@ func main() {
 
 		fmt.Println("Sending test Slack message...")
 		
-		monitor := NewSyslogMonitor(*logFile, *outputFile, filters, keywords, emailConfig, slackConfig)
+		monitor := NewSyslogMonitor(*logFile, *outputFile, filters, keywords, emailConfig, slackConfig, *aiEnabled, *systemEnabled)
 		
 		testMsg := SlackMessage{
 			Text:      "🧪 *Test Message from Syslog Monitor*",
@@ -914,7 +1283,7 @@ func main() {
 
 		fmt.Println("Sending test email...")
 		
-		monitor := NewSyslogMonitor(*logFile, *outputFile, filters, keywords, emailConfig, slackConfig)
+		monitor := NewSyslogMonitor(*logFile, *outputFile, filters, keywords, emailConfig, slackConfig, *aiEnabled, *systemEnabled)
 		subject := "[TEST] Syslog Monitor Email Test"
 		body := fmt.Sprintf(`이것은 syslog 모니터의 테스트 이메일입니다.
 
@@ -942,7 +1311,7 @@ Syslog Monitor
 	}
 
 	// 감시 서비스 생성 및 시작
-	monitor := NewSyslogMonitor(*logFile, *outputFile, filters, keywords, emailConfig, slackConfig)
+	monitor := NewSyslogMonitor(*logFile, *outputFile, filters, keywords, emailConfig, slackConfig, *aiEnabled, *systemEnabled)
 	
 	if err := monitor.Start(); err != nil {
 		fmt.Printf("Error: %v\n", err)
