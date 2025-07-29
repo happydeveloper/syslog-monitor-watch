@@ -714,44 +714,82 @@ func (sm *SyslogMonitor) sendAIAlert(aiResult *AIAnalysisResult, parsedLog *Pars
 	if sm.emailConfig.Enabled {
 		subject := fmt.Sprintf("[AI ALERT %s] %s", aiResult.ThreatLevel, "이상 징후 감지")
 		
-		body := fmt.Sprintf(`🤖 AI 로그 분석 결과
+		body := fmt.Sprintf(`🚨 보안 이상 탐지 알람
+======================
+⚠️  위협 레벨: %s
+📊 이상 점수: %.1f/10.0
+🕐 탐지 시간: %s
 
-위협 레벨: %s
-이상 점수: %.2f/10
-신뢰도: %.1f%%
-감지 시간: %s
+🖥️  시스템 정보:
+  📍 컴퓨터명: %s
+  🏠 내부 IP: %s
+  🌐 외부 IP: %s
 
-📊 분석 결과:
-- 영향받는 시스템: %s
-
-🔮 예측 결과:`,
+`,
 			aiResult.ThreatLevel,
 			aiResult.AnomalyScore,
-			aiResult.Confidence*100,
 			aiResult.Timestamp.Format("2006-01-02 15:04:05"),
-			strings.Join(aiResult.AffectedSystems, ", "),
+			aiResult.SystemInfo.ComputerName,
+			strings.Join(aiResult.SystemInfo.InternalIPs, ", "),
+			strings.Join(aiResult.SystemInfo.ExternalIPs, ", "),
 		)
-		
-		for _, prediction := range aiResult.Predictions {
-			body += fmt.Sprintf(`
-- %s (확률: %.0f%%, 시간: %s)
-  영향: %s`, prediction.Event, prediction.Probability*100, prediction.TimeFrame, prediction.Impact)
+
+		// ASN 정보 추가
+		if len(aiResult.SystemInfo.ASNData) > 0 {
+			body += "🔍 ASN 정보:\n"
+			for _, asn := range aiResult.SystemInfo.ASNData {
+				body += fmt.Sprintf("  📍 %s\n", asn.IP)
+				body += fmt.Sprintf("    🏢 조직: %s\n", asn.Organization)
+				body += fmt.Sprintf("    🌍 국가: %s, %s, %s\n", asn.Country, asn.Region, asn.City)
+				body += fmt.Sprintf("    🔢 ASN: %s\n", asn.ASN)
+				body += "\n"
+			}
 		}
-		
-		body += "\n\n💡 추천 조치사항:"
-		for _, recommendation := range aiResult.Recommendations {
-			body += fmt.Sprintf("\n- %s", recommendation)
-		}
-		
+
+		// 로그 정보
 		if parsedLog != nil {
 			body += fmt.Sprintf(`
+📋 로그 정보:
+  📝 레벨: %s
+  🏷️  타입: %s
+  💬 메시지: %s
+  📄 원본: %s
 
-📋 로그 상세 정보:
-- 로그 타입: %s
-- 레벨: %s
-- 메시지: %s
-- 원본: %s`, parsedLog.LogType, parsedLog.Level, parsedLog.Message, parsedLog.RawLog)
+`,
+				parsedLog.Level,
+				parsedLog.LogType,
+				parsedLog.Message,
+				parsedLog.RawLog,
+			)
 		}
+
+		// 예측 결과
+		if len(aiResult.Predictions) > 0 {
+			body += "🔮 위험 예측:\n"
+			for _, prediction := range aiResult.Predictions {
+				body += fmt.Sprintf("  ⚡ %s (확률: %.0f%%, %s)\n", 
+					prediction.Event, prediction.Probability*100, prediction.TimeFrame)
+				body += fmt.Sprintf("    💥 영향: %s\n", prediction.Impact)
+			}
+			body += "\n"
+		}
+
+		// 권장사항
+		if len(aiResult.Recommendations) > 0 {
+			body += "💡 권장사항:\n"
+			for _, recommendation := range aiResult.Recommendations {
+				body += fmt.Sprintf("  • %s\n", recommendation)
+			}
+			body += "\n"
+		}
+
+		// 영향받는 시스템
+		if len(aiResult.AffectedSystems) > 0 {
+			body += fmt.Sprintf("🎯 영향받는 시스템: %s\n", 
+				strings.Join(aiResult.AffectedSystems, ", "))
+		}
+
+		body += fmt.Sprintf("🎯 신뢰도: %.0f%%\n", aiResult.Confidence*100)
 		
 		sm.logger.Infof("🚨 Sending AI alert to: %s", strings.Join(sm.emailConfig.To, ", "))
 		go func() {
@@ -770,28 +808,75 @@ func (sm *SyslogMonitor) sendAIAlert(aiResult *AIAnalysisResult, parsedLog *Pars
 		
 		fields := []SlackField{
 			{Title: "위협 레벨", Value: aiResult.ThreatLevel, Short: true},
-			{Title: "이상 점수", Value: fmt.Sprintf("%.2f/10", aiResult.AnomalyScore), Short: true},
-			{Title: "신뢰도", Value: fmt.Sprintf("%.1f%%", aiResult.Confidence*100), Short: true},
-			{Title: "영향 시스템", Value: strings.Join(aiResult.AffectedSystems, ", "), Short: false},
+			{Title: "이상 점수", Value: fmt.Sprintf("%.1f/10.0", aiResult.AnomalyScore), Short: true},
+			{Title: "신뢰도", Value: fmt.Sprintf("%.0f%%", aiResult.Confidence*100), Short: true},
+			{Title: "컴퓨터명", Value: aiResult.SystemInfo.ComputerName, Short: true},
+		}
+
+		// 내부 IP 정보 추가
+		if len(aiResult.SystemInfo.InternalIPs) > 0 {
+			fields = append(fields, SlackField{
+				Title: "🏠 내부 IP", 
+				Value: strings.Join(aiResult.SystemInfo.InternalIPs, ", "), 
+				Short: true,
+			})
+		}
+
+		// 외부 IP 정보 추가
+		if len(aiResult.SystemInfo.ExternalIPs) > 0 {
+			fields = append(fields, SlackField{
+				Title: "🌐 외부 IP", 
+				Value: strings.Join(aiResult.SystemInfo.ExternalIPs, ", "), 
+				Short: true,
+			})
+		}
+
+		// ASN 정보 추가
+		if len(aiResult.SystemInfo.ASNData) > 0 {
+			asnText := ""
+			for _, asn := range aiResult.SystemInfo.ASNData {
+				asnText += fmt.Sprintf("📍 %s\n🏢 %s\n🌍 %s\n🔢 %s\n\n", 
+					asn.IP, asn.Organization, asn.Country, asn.ASN)
+			}
+			fields = append(fields, SlackField{Title: "🔍 ASN 정보", Value: asnText, Short: false})
+		}
+
+		// 영향받는 시스템
+		if len(aiResult.AffectedSystems) > 0 {
+			fields = append(fields, SlackField{
+				Title: "🎯 영향 시스템", 
+				Value: strings.Join(aiResult.AffectedSystems, ", "), 
+				Short: false,
+			})
 		}
 		
 		// 예측 결과 추가
 		if len(aiResult.Predictions) > 0 {
 			predictionText := ""
 			for _, prediction := range aiResult.Predictions {
-				predictionText += fmt.Sprintf("• %s (%.0f%%)\n", prediction.Event, prediction.Probability*100)
+				predictionText += fmt.Sprintf("⚡ %s (%.0f%%)\n💥 %s\n\n", 
+					prediction.Event, prediction.Probability*100, prediction.Impact)
 			}
-			fields = append(fields, SlackField{Title: "예측", Value: predictionText, Short: false})
+			fields = append(fields, SlackField{Title: "🔮 위험 예측", Value: predictionText, Short: false})
+		}
+
+		// 권장사항 추가
+		if len(aiResult.Recommendations) > 0 {
+			recommendationText := ""
+			for _, rec := range aiResult.Recommendations {
+				recommendationText += fmt.Sprintf("• %s\n", rec)
+			}
+			fields = append(fields, SlackField{Title: "💡 권장사항", Value: recommendationText, Short: false})
 		}
 		
 		slackMsg := SlackMessage{
-			Text:      fmt.Sprintf("🤖 *AI 이상 징후 감지* %s", aiResult.ThreatLevel),
-			IconEmoji: ":robot_face:",
-			Username:  "AI Log Analyzer",
+			Text:      fmt.Sprintf("🚨 *보안 이상 탐지 알람* %s", aiResult.ThreatLevel),
+			IconEmoji: ":warning:",
+			Username:  "AI Security Monitor",
 			Attachments: []SlackAttachment{
 				{
 					Color:     color,
-					Title:     "AI 분석 결과",
+					Title:     "🤖 AI 분석 결과",
 					Fields:    fields,
 					Timestamp: time.Now().Unix(),
 				},
