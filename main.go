@@ -1,13 +1,8 @@
 package main
 
 import (
-	"bytes"
-	"crypto/tls"
-	"encoding/json"
 	"flag"
 	"fmt"
-	"net/http"
-	"net/smtp"
 	"os"
 	"os/signal"
 	"regexp"
@@ -65,20 +60,22 @@ type SyslogMonitor struct {
 	keywords      []string
 	outputFile    string
 	logger        *logrus.Logger
-	emailConfig   *EmailConfig
-	slackConfig   *SlackConfig
+	emailService  *EmailService
+	slackService  *SlackService
+	loginDetector *LoginDetector
 	aiAnalyzer    *AIAnalyzer
 	systemMonitor *SystemMonitor
 	logParser     *LogParserManager
 	aiEnabled     bool
 	systemEnabled bool
+	loginWatch    bool
 }
 
-func NewSyslogMonitor(logFile, outputFile string, filters, keywords []string, emailConfig *EmailConfig, slackConfig *SlackConfig, aiEnabled, systemEnabled bool) *SyslogMonitor {
+func NewSyslogMonitor(logFile, outputFile string, filters, keywords []string, emailConfig *EmailConfig, slackConfig *SlackConfig, aiEnabled, systemEnabled, loginWatch bool) *SyslogMonitor {
 	logger := logrus.New()
 	logger.SetLevel(logrus.InfoLevel)
 	logger.SetFormatter(&logrus.TextFormatter{
-		FullTimestamp: true,
+		FullTimestamp:   true,
 		TimestampFormat: "2006-01-02 15:04:05",
 	})
 
@@ -89,15 +86,31 @@ func NewSyslogMonitor(logFile, outputFile string, filters, keywords []string, em
 		}
 	}
 
+	// 서비스 초기화
+	var emailService *EmailService
+	var slackService *SlackService
+	var loginDetector *LoginDetector
 	var aiAnalyzer *AIAnalyzer
 	var systemMonitor *SystemMonitor
-	
+
+	if emailConfig != nil && emailConfig.Enabled {
+		emailService = NewEmailService(emailConfig, logger)
+	}
+
+	if slackConfig != nil && slackConfig.Enabled {
+		slackService = NewSlackService(slackConfig, logger)
+	}
+
+	if loginWatch {
+		loginDetector = NewLoginDetector(logger)
+	}
+
 	if aiEnabled {
 		aiAnalyzer = NewAIAnalyzer()
 	}
-	
+
 	if systemEnabled {
-		systemMonitor = NewSystemMonitor(time.Minute * 5) // 5분 간격으로 시스템 모니터링
+		systemMonitor = NewSystemMonitor(DefaultMonitoringInterval)
 	}
 
 	return &SyslogMonitor{
@@ -106,13 +119,15 @@ func NewSyslogMonitor(logFile, outputFile string, filters, keywords []string, em
 		keywords:      keywords,
 		outputFile:    outputFile,
 		logger:        logger,
-		emailConfig:   emailConfig,
-		slackConfig:   slackConfig,
+		emailService:  emailService,
+		slackService:  slackService,
+		loginDetector: loginDetector,
 		aiAnalyzer:    aiAnalyzer,
 		systemMonitor: systemMonitor,
 		logParser:     NewLogParserManager(),
 		aiEnabled:     aiEnabled,
 		systemEnabled: systemEnabled,
+		loginWatch:    loginWatch,
 	}
 }
 
@@ -167,295 +182,13 @@ func (sm *SyslogMonitor) parseSyslogLine(line string) map[string]string {
 	return result
 }
 
-func (sm *SyslogMonitor) sendEmail(subject, body string) error {
-	if !sm.emailConfig.Enabled {
-		return nil
-	}
+// 이메일 전송 기능은 EmailService로 이동됨
 
-	// Gmail SMTP 사용 시 간단한 방법 사용
-	if sm.emailConfig.SMTPServer == "smtp.gmail.com" {
-		return sm.sendGmailEmail(subject, body)
-	}
+// Slack 전송 기능은 SlackService로 이동됨
 
-	// 기타 SMTP 서버용 일반적인 방법
-	return sm.sendGenericEmail(subject, body)
-}
+// 로그인 감지 기능은 LoginDetector로 이동됨
 
-func (sm *SyslogMonitor) sendGmailEmail(subject, body string) error {
-	// Gmail SMTP 설정
-	auth := smtp.PlainAuth("", sm.emailConfig.Username, sm.emailConfig.Password, sm.emailConfig.SMTPServer)
-
-	// 이메일 메시지 구성
-	message := []byte(fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\n\r\n%s",
-		sm.emailConfig.From,
-		strings.Join(sm.emailConfig.To, ","),
-		subject,
-		body))
-
-	// Gmail SMTP 서버로 전송 (포트 587, STARTTLS)
-	err := smtp.SendMail(
-		sm.emailConfig.SMTPServer+":"+sm.emailConfig.SMTPPort,
-		auth,
-		sm.emailConfig.From,
-		sm.emailConfig.To,
-		message,
-	)
-
-	if err != nil {
-		return fmt.Errorf("failed to send Gmail email: %v", err)
-	}
-
-	sm.logger.Infof("✅ Gmail email sent successfully to: %s", strings.Join(sm.emailConfig.To, ", "))
-	return nil
-}
-
-func (sm *SyslogMonitor) sendSlackMessage(message SlackMessage) error {
-	if !sm.slackConfig.Enabled {
-		return nil
-	}
-
-	// 기본값 설정
-	if message.Channel == "" && sm.slackConfig.Channel != "" {
-		message.Channel = sm.slackConfig.Channel
-	}
-	if message.Username == "" && sm.slackConfig.Username != "" {
-		message.Username = sm.slackConfig.Username
-	}
-
-	jsonData, err := json.Marshal(message)
-	if err != nil {
-		return fmt.Errorf("failed to marshal slack message: %v", err)
-	}
-
-	resp, err := http.Post(sm.slackConfig.WebhookURL, "application/json", bytes.NewBuffer(jsonData))
-	if err != nil {
-		return fmt.Errorf("failed to send slack message: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("slack webhook returned status: %d", resp.StatusCode)
-	}
-
-	sm.logger.Infof("✅ Slack message sent successfully to channel: %s", message.Channel)
-	return nil
-}
-
-func (sm *SyslogMonitor) detectLoginPattern(line string) (bool, map[string]string) {
-	patterns := map[string]*regexp.Regexp{
-		"ssh_success": regexp.MustCompile(`(?i)sshd.*Accepted\s+(password|publickey|keyboard-interactive)\s+for\s+(\w+)\s+from\s+([\d\.]+)`),
-		"ssh_failed":  regexp.MustCompile(`(?i)sshd.*Failed\s+(password|publickey)\s+for\s+(\w+)\s+from\s+([\d\.]+)`),
-		"sudo_usage":  regexp.MustCompile(`(?i)sudo.*USER=(\w+).*COMMAND=(.+)`),
-		"user_login":  regexp.MustCompile(`(?i)(login|session).*user\s+(\w+)`),
-		"web_login":   regexp.MustCompile(`(?i)(login|authentication).*user[:\s]+(\w+).*from[:\s]+([\d\.]+)`),
-	}
-
-	for patternName, pattern := range patterns {
-		matches := pattern.FindStringSubmatch(line)
-		if matches != nil {
-			result := map[string]string{
-				"pattern": patternName,
-				"line":    line,
-			}
-
-			switch patternName {
-			case "ssh_success":
-				result["method"] = matches[1]
-				result["user"] = matches[2]
-				result["ip"] = matches[3]
-				result["status"] = "success"
-			case "ssh_failed":
-				result["method"] = matches[1]
-				result["user"] = matches[2]
-				result["ip"] = matches[3]
-				result["status"] = "failed"
-			case "sudo_usage":
-				result["user"] = matches[1]
-				result["command"] = matches[2]
-				result["status"] = "sudo"
-			case "user_login":
-				result["user"] = matches[2]
-				result["status"] = "login"
-			case "web_login":
-				result["user"] = matches[2]
-				result["ip"] = matches[3]
-				result["status"] = "web_login"
-			}
-			return true, result
-		}
-	}
-	return false, nil
-}
-
-func (sm *SyslogMonitor) createLoginSlackMessage(loginInfo map[string]string, parsed map[string]string) SlackMessage {
-	var color, title, emoji string
-	var fields []SlackField
-
-	switch loginInfo["status"] {
-	case "success":
-		color = "good"
-		title = "✅ SSH Login Success"
-		emoji = ":white_check_mark:"
-		fields = []SlackField{
-			{Title: "User", Value: loginInfo["user"], Short: true},
-			{Title: "IP Address", Value: loginInfo["ip"], Short: true},
-			{Title: "Method", Value: loginInfo["method"], Short: true},
-			{Title: "Host", Value: parsed["host"], Short: true},
-		}
-	case "failed":
-		color = "danger"
-		title = "❌ SSH Login Failed"
-		emoji = ":x:"
-		fields = []SlackField{
-			{Title: "User", Value: loginInfo["user"], Short: true},
-			{Title: "IP Address", Value: loginInfo["ip"], Short: true},
-			{Title: "Method", Value: loginInfo["method"], Short: true},
-			{Title: "Host", Value: parsed["host"], Short: true},
-		}
-	case "sudo":
-		color = "warning"
-		title = "⚡ Sudo Command Executed"
-		emoji = ":zap:"
-		fields = []SlackField{
-			{Title: "User", Value: loginInfo["user"], Short: true},
-			{Title: "Host", Value: parsed["host"], Short: true},
-			{Title: "Command", Value: loginInfo["command"], Short: false},
-		}
-	case "web_login":
-		color = "good"
-		title = "🌐 Web Login Detected"
-		emoji = ":globe_with_meridians:"
-		fields = []SlackField{
-			{Title: "User", Value: loginInfo["user"], Short: true},
-			{Title: "IP Address", Value: loginInfo["ip"], Short: true},
-			{Title: "Host", Value: parsed["host"], Short: true},
-		}
-	default:
-		color = "#36a64f"
-		title = "👤 User Activity"
-		emoji = ":bust_in_silhouette:"
-		fields = []SlackField{
-			{Title: "User", Value: loginInfo["user"], Short: true},
-			{Title: "Host", Value: parsed["host"], Short: true},
-			{Title: "Activity", Value: loginInfo["status"], Short: true},
-		}
-	}
-
-	attachment := SlackAttachment{
-		Color:     color,
-		Title:     title,
-		Fields:    fields,
-		Timestamp: time.Now().Unix(),
-	}
-
-	return SlackMessage{
-		Text:      fmt.Sprintf("%s *%s*", emoji, title),
-		IconEmoji: ":robot_face:",
-		Username:  "Syslog Monitor",
-		Attachments: []SlackAttachment{attachment},
-	}
-}
-
-func (sm *SyslogMonitor) sendGenericEmail(subject, body string) error {
-	// 이메일 메시지 구성
-	message := fmt.Sprintf("From: %s\r\n", sm.emailConfig.From)
-	message += fmt.Sprintf("To: %s\r\n", strings.Join(sm.emailConfig.To, ","))
-	message += fmt.Sprintf("Subject: %s\r\n", subject)
-	message += "Content-Type: text/plain; charset=UTF-8\r\n"
-	message += "\r\n"
-	message += body
-
-	// SMTP 서버 연결
-	serverName := sm.emailConfig.SMTPServer + ":" + sm.emailConfig.SMTPPort
-
-	// 인증 설정
-	var auth smtp.Auth
-	if sm.emailConfig.Username != "" && sm.emailConfig.Password != "" {
-		auth = smtp.PlainAuth("", sm.emailConfig.Username, sm.emailConfig.Password, sm.emailConfig.SMTPServer)
-	}
-
-	// TLS 설정
-	tlsConfig := &tls.Config{
-		InsecureSkipVerify: false,
-		ServerName:         sm.emailConfig.SMTPServer,
-	}
-
-	// 포트에 따라 다른 연결 방식 사용
-	if sm.emailConfig.SMTPPort == "465" {
-		// SSL/TLS 직접 연결 (포트 465)
-		conn, err := tls.Dial("tcp", serverName, tlsConfig)
-		if err != nil {
-			return fmt.Errorf("failed to connect to SMTP server (SSL): %v", err)
-		}
-		defer conn.Close()
-
-		client, err := smtp.NewClient(conn, sm.emailConfig.SMTPServer)
-		if err != nil {
-			return fmt.Errorf("failed to create SMTP client: %v", err)
-		}
-		defer client.Quit()
-
-		if auth != nil {
-			if err := client.Auth(auth); err != nil {
-				return fmt.Errorf("SMTP authentication failed: %v", err)
-			}
-		}
-
-		return sm.sendEmailMessage(client, message)
-
-	} else {
-		// STARTTLS 연결 (포트 587)
-		client, err := smtp.Dial(serverName)
-		if err != nil {
-			return fmt.Errorf("failed to connect to SMTP server: %v", err)
-		}
-		defer client.Quit()
-
-		// STARTTLS 시작
-		if ok, _ := client.Extension("STARTTLS"); ok {
-			if err := client.StartTLS(tlsConfig); err != nil {
-				return fmt.Errorf("failed to start TLS: %v", err)
-			}
-		}
-
-		if auth != nil {
-			if err := client.Auth(auth); err != nil {
-				return fmt.Errorf("SMTP authentication failed: %v", err)
-			}
-		}
-
-		return sm.sendEmailMessage(client, message)
-	}
-}
-
-func (sm *SyslogMonitor) sendEmailMessage(client *smtp.Client, message string) error {
-	// 발신자 설정
-	if err := client.Mail(sm.emailConfig.From); err != nil {
-		return fmt.Errorf("failed to set sender: %v", err)
-	}
-
-	// 수신자 설정
-	for _, to := range sm.emailConfig.To {
-		if err := client.Rcpt(to); err != nil {
-			return fmt.Errorf("failed to set recipient %s: %v", to, err)
-		}
-	}
-
-	// 메시지 전송
-	writer, err := client.Data()
-	if err != nil {
-		return fmt.Errorf("failed to open data writer: %v", err)
-	}
-	defer writer.Close()
-
-	_, err = writer.Write([]byte(message))
-	if err != nil {
-		return fmt.Errorf("failed to write message: %v", err)
-	}
-
-	sm.logger.Infof("Email alert sent successfully to %s", strings.Join(sm.emailConfig.To, ","))
-	return nil
-}
+// 모든 이메일 관련 함수들은 EmailService로 이동됨
 
 func (sm *SyslogMonitor) processLine(line string) {
 	// 필터링 체크
@@ -488,24 +221,26 @@ func (sm *SyslogMonitor) processLine(line string) {
 		}
 	}
 
-	// 로그인 패턴 감지 (우선 처리)
-	if isLogin, loginInfo := sm.detectLoginPattern(line); isLogin {
-		sm.logger.WithFields(logrus.Fields{
-			"level": "LOGIN",
-			"user":  loginInfo["user"],
-			"host":  parsed["host"],
-			"status": loginInfo["status"],
-		}).Infof("User activity detected: %s", loginInfo["status"])
+	// 로그인 패턴 감지 (LoginDetector 서비스 사용)
+	if sm.loginWatch && sm.loginDetector != nil {
+		if isLogin, loginInfo := sm.loginDetector.DetectLoginPattern(line); isLogin {
+			sm.logger.WithFields(logrus.Fields{
+				"level":  "LOGIN",
+				"user":   loginInfo.User,
+				"host":   parsed["host"],
+				"status": loginInfo.Status,
+			}).Infof("User activity detected: %s", loginInfo.Status)
 
-		// 슬랙 로그인 알림 전송
-		if sm.slackConfig.Enabled {
-			slackMsg := sm.createLoginSlackMessage(loginInfo, parsed)
-			sm.logger.Infof("💬 Sending login notification to Slack: %s", loginInfo["user"])
-			go func() {
-				if err := sm.sendSlackMessage(slackMsg); err != nil {
-					sm.logger.Errorf("❌ Failed to send Slack login notification: %v", err)
-				}
-			}()
+			// Slack 로그인 알림 전송 (SlackService 사용)
+			if sm.slackService != nil {
+				slackMsg := sm.slackService.CreateLoginAlert(loginInfo.ToMap(), parsed)
+				sm.logger.Infof("💬 Sending login notification to Slack: %s", loginInfo.User)
+				go func() {
+					if err := sm.slackService.SendMessage(slackMsg); err != nil {
+						sm.logger.Errorf("❌ Failed to send Slack login notification: %v", err)
+					}
+				}()
+			}
 		}
 	}
 
@@ -518,29 +253,29 @@ func (sm *SyslogMonitor) processLine(line string) {
 			"service": parsed["service"],
 		}).Error(parsed["message"])
 		
-		// 에러 발생 시 이메일 알림 전송
-		if sm.emailConfig.Enabled {
-			subject := fmt.Sprintf("[SYSLOG ERROR] %s - %s", parsed["host"], parsed["service"])
+		// 에러 발생 시 이메일 알림 전송 (EmailService 사용)
+		if sm.emailService != nil {
+			subject := fmt.Sprintf("[%s ERROR] %s - %s", AppName, parsed["host"], parsed["service"])
 			body := fmt.Sprintf("시간: %s\n호스트: %s\n서비스: %s\n메시지: %s\n원본 로그: %s", 
 				parsed["timestamp"], parsed["host"], parsed["service"], parsed["message"], line)
 			
-			sm.logger.Infof("📧 Sending ERROR alert to: %s", strings.Join(sm.emailConfig.To, ", "))
+			sm.logger.Infof("📧 Sending ERROR alert to: %s", sm.emailService.GetRecipientsList())
 			go func() {
-				if err := sm.sendEmail(subject, body); err != nil {
-					sm.logger.Errorf("❌ Failed to send email alert to %s: %v", strings.Join(sm.emailConfig.To, ", "), err)
+				if err := sm.emailService.SendEmail(subject, body); err != nil {
+					sm.logger.Errorf("❌ Failed to send email alert: %v", err)
 				}
 			}()
 		}
 
-		// 에러 시 슬랙 알림도 전송
-		if sm.slackConfig.Enabled {
+		// 에러 시 Slack 알림도 전송 (SlackService 사용)
+		if sm.slackService != nil {
 			slackMsg := SlackMessage{
 				Text:      fmt.Sprintf("🔴 *ERROR Alert*"),
 				IconEmoji: ":rotating_light:",
-				Username:  "Syslog Monitor",
+				Username:  DefaultSlackUsername,
 				Attachments: []SlackAttachment{
 					{
-						Color: "danger",
+						Color: SlackColorDanger,
 						Title: fmt.Sprintf("Error on %s", parsed["host"]),
 						Fields: []SlackField{
 							{Title: "Service", Value: parsed["service"], Short: true},
@@ -552,7 +287,7 @@ func (sm *SyslogMonitor) processLine(line string) {
 				},
 			}
 			go func() {
-				if err := sm.sendSlackMessage(slackMsg); err != nil {
+				if err := sm.slackService.SendMessage(slackMsg); err != nil {
 					sm.logger.Errorf("❌ Failed to send Slack error alert: %v", err)
 				}
 			}()
@@ -572,29 +307,29 @@ func (sm *SyslogMonitor) processLine(line string) {
 			"service": parsed["service"],
 		}).Fatal(parsed["message"])
 		
-		// 크리티컬 에러 발생 시 이메일 알림 전송
-		if sm.emailConfig.Enabled {
-			subject := fmt.Sprintf("[SYSLOG CRITICAL] %s - %s", parsed["host"], parsed["service"])
+		// 크리티컬 에러 발생 시 이메일 알림 전송 (EmailService 사용)
+		if sm.emailService != nil {
+			subject := fmt.Sprintf("[%s CRITICAL] %s - %s", AppName, parsed["host"], parsed["service"])
 			body := fmt.Sprintf("🚨 CRITICAL ALERT 🚨\n\n시간: %s\n호스트: %s\n서비스: %s\n메시지: %s\n원본 로그: %s", 
 				parsed["timestamp"], parsed["host"], parsed["service"], parsed["message"], line)
 			
-			sm.logger.Warnf("🚨 Sending CRITICAL alert to: %s", strings.Join(sm.emailConfig.To, ", "))
+			sm.logger.Warnf("🚨 Sending CRITICAL alert to: %s", sm.emailService.GetRecipientsList())
 			go func() {
-				if err := sm.sendEmail(subject, body); err != nil {
-					sm.logger.Errorf("❌ Failed to send critical email alert to %s: %v", strings.Join(sm.emailConfig.To, ", "), err)
+				if err := sm.emailService.SendEmail(subject, body); err != nil {
+					sm.logger.Errorf("❌ Failed to send critical email alert: %v", err)
 				}
 			}()
 		}
 
-		// 크리티컬 에러 시 슬랙 긴급 알림
-		if sm.slackConfig.Enabled {
+		// 크리티컬 에러 시 Slack 긴급 알림 (SlackService 사용)
+		if sm.slackService != nil {
 			slackMsg := SlackMessage{
 				Text:      fmt.Sprintf("🚨 *CRITICAL ALERT* 🚨"),
-				IconEmoji: ":warning:",
-				Username:  "Syslog Monitor",
+				IconEmoji: DefaultSlackIcon,
+				Username:  DefaultSlackUsername,
 				Attachments: []SlackAttachment{
 					{
-						Color: "#ff0000",
+						Color: SlackColorDanger,
 						Title: fmt.Sprintf("CRITICAL ERROR on %s", parsed["host"]),
 						Fields: []SlackField{
 							{Title: "Service", Value: parsed["service"], Short: true},
@@ -606,7 +341,7 @@ func (sm *SyslogMonitor) processLine(line string) {
 				},
 			}
 			go func() {
-				if err := sm.sendSlackMessage(slackMsg); err != nil {
+				if err := sm.slackService.SendMessage(slackMsg); err != nil {
 					sm.logger.Errorf("❌ Failed to send Slack critical alert: %v", err)
 				}
 			}()
@@ -708,16 +443,16 @@ func (sm *SyslogMonitor) Start() error {
 	}
 }
 
-// sendAIAlert AI 분석 결과 알림 전송
+// sendAIAlert AI 분석 결과 알림 전송 (리팩토링된 버전)
 func (sm *SyslogMonitor) sendAIAlert(aiResult *AIAnalysisResult, parsedLog *ParsedLog) {
-	// 이메일 알림
-	if sm.emailConfig.Enabled {
-		subject := fmt.Sprintf("[AI ALERT %s] %s", aiResult.ThreatLevel, "이상 징후 감지")
+	// 이메일 알림 (EmailService 사용)
+	if sm.emailService != nil {
+		subject := fmt.Sprintf("[%s %s] %s", AppName, aiResult.ThreatLevel, "이상 징후 감지")
 		
 		body := fmt.Sprintf(`🚨 보안 이상 탐지 알람
 ======================
 ⚠️  위협 레벨: %s
-📊 이상 점수: %.1f/10.0
+📊 이상 점수: %.1f/%.0f
 🕐 탐지 시간: %s
 
 🖥️  시스템 정보:
@@ -728,6 +463,7 @@ func (sm *SyslogMonitor) sendAIAlert(aiResult *AIAnalysisResult, parsedLog *Pars
 `,
 			aiResult.ThreatLevel,
 			aiResult.AnomalyScore,
+			MaxAnomalyScore,
 			aiResult.Timestamp.Format("2006-01-02 15:04:05"),
 			aiResult.SystemInfo.ComputerName,
 			strings.Join(aiResult.SystemInfo.InternalIPs, ", "),
@@ -791,100 +527,20 @@ func (sm *SyslogMonitor) sendAIAlert(aiResult *AIAnalysisResult, parsedLog *Pars
 
 		body += fmt.Sprintf("🎯 신뢰도: %.0f%%\n", aiResult.Confidence*100)
 		
-		sm.logger.Infof("🚨 Sending AI alert to: %s", strings.Join(sm.emailConfig.To, ", "))
+		sm.logger.Infof("🚨 Sending AI alert to: %s", sm.emailService.GetRecipientsList())
 		go func() {
-			if err := sm.sendEmail(subject, body); err != nil {
+			if err := sm.emailService.SendEmail(subject, body); err != nil {
 				sm.logger.Errorf("❌ Failed to send AI alert email: %v", err)
 			}
 		}()
 	}
 	
-	// 슬랙 알림
-	if sm.slackConfig.Enabled {
-		color := "warning"
-		if aiResult.AnomalyScore >= 8.0 {
-			color = "danger"
-		}
-		
-		fields := []SlackField{
-			{Title: "위협 레벨", Value: aiResult.ThreatLevel, Short: true},
-			{Title: "이상 점수", Value: fmt.Sprintf("%.1f/10.0", aiResult.AnomalyScore), Short: true},
-			{Title: "신뢰도", Value: fmt.Sprintf("%.0f%%", aiResult.Confidence*100), Short: true},
-			{Title: "컴퓨터명", Value: aiResult.SystemInfo.ComputerName, Short: true},
-		}
-
-		// 내부 IP 정보 추가
-		if len(aiResult.SystemInfo.InternalIPs) > 0 {
-			fields = append(fields, SlackField{
-				Title: "🏠 내부 IP", 
-				Value: strings.Join(aiResult.SystemInfo.InternalIPs, ", "), 
-				Short: true,
-			})
-		}
-
-		// 외부 IP 정보 추가
-		if len(aiResult.SystemInfo.ExternalIPs) > 0 {
-			fields = append(fields, SlackField{
-				Title: "🌐 외부 IP", 
-				Value: strings.Join(aiResult.SystemInfo.ExternalIPs, ", "), 
-				Short: true,
-			})
-		}
-
-		// ASN 정보 추가
-		if len(aiResult.SystemInfo.ASNData) > 0 {
-			asnText := ""
-			for _, asn := range aiResult.SystemInfo.ASNData {
-				asnText += fmt.Sprintf("📍 %s\n🏢 %s\n🌍 %s\n🔢 %s\n\n", 
-					asn.IP, asn.Organization, asn.Country, asn.ASN)
-			}
-			fields = append(fields, SlackField{Title: "🔍 ASN 정보", Value: asnText, Short: false})
-		}
-
-		// 영향받는 시스템
-		if len(aiResult.AffectedSystems) > 0 {
-			fields = append(fields, SlackField{
-				Title: "🎯 영향 시스템", 
-				Value: strings.Join(aiResult.AffectedSystems, ", "), 
-				Short: false,
-			})
-		}
-		
-		// 예측 결과 추가
-		if len(aiResult.Predictions) > 0 {
-			predictionText := ""
-			for _, prediction := range aiResult.Predictions {
-				predictionText += fmt.Sprintf("⚡ %s (%.0f%%)\n💥 %s\n\n", 
-					prediction.Event, prediction.Probability*100, prediction.Impact)
-			}
-			fields = append(fields, SlackField{Title: "🔮 위험 예측", Value: predictionText, Short: false})
-		}
-
-		// 권장사항 추가
-		if len(aiResult.Recommendations) > 0 {
-			recommendationText := ""
-			for _, rec := range aiResult.Recommendations {
-				recommendationText += fmt.Sprintf("• %s\n", rec)
-			}
-			fields = append(fields, SlackField{Title: "💡 권장사항", Value: recommendationText, Short: false})
-		}
-		
-		slackMsg := SlackMessage{
-			Text:      fmt.Sprintf("🚨 *보안 이상 탐지 알람* %s", aiResult.ThreatLevel),
-			IconEmoji: ":warning:",
-			Username:  "AI Security Monitor",
-			Attachments: []SlackAttachment{
-				{
-					Color:     color,
-					Title:     "🤖 AI 분석 결과",
-					Fields:    fields,
-					Timestamp: time.Now().Unix(),
-				},
-			},
-		}
+	// Slack 알림 (SlackService 사용)
+	if sm.slackService != nil {
+		slackMsg := sm.slackService.CreateAIAlert(aiResult)
 		
 		go func() {
-			if err := sm.sendSlackMessage(slackMsg); err != nil {
+			if err := sm.slackService.SendMessage(slackMsg); err != nil {
 				sm.logger.Errorf("❌ Failed to send AI alert to Slack: %v", err)
 			}
 		}()
@@ -900,20 +556,20 @@ func (sm *SyslogMonitor) handleSystemAlerts() {
 			"value": alert.Value,
 		}).Warnf("System alert: %s", alert.Message)
 		
-		// 이메일 알림
-		if sm.emailConfig.Enabled {
-			subject := fmt.Sprintf("[SYSTEM ALERT %s] %s", alert.Level, alert.Type)
+		// 이메일 알림 (EmailService 사용)
+		if sm.emailService != nil {
+			subject := fmt.Sprintf("[%s SYSTEM ALERT] %s", AppName, alert.Type)
 			
 			body := fmt.Sprintf(`🖥️  시스템 알림
 
-알림 레벨: %s
-타입: %s
+심각도: %s
+메트릭: %s
 메시지: %s
 현재 값: %.2f
 임계값: %.2f
 시간: %s
 
-💡 추천 조치사항:`,
+시스템에서 임계값을 초과한 상황이 감지되었습니다.`,
 				alert.Level,
 				alert.Type,
 				alert.Message,
@@ -922,65 +578,20 @@ func (sm *SyslogMonitor) handleSystemAlerts() {
 				alert.Timestamp.Format("2006-01-02 15:04:05"),
 			)
 			
-			for _, suggestion := range alert.Suggestions {
-				body += fmt.Sprintf("\n- %s", suggestion)
-			}
-			
-			body += fmt.Sprintf(`
-
-📊 시스템 상태:
-- CPU 사용률: %.1f%%
-- 메모리 사용률: %.1f%%
-- 로드 평균: %.2f`,
-				alert.Metrics.CPU.UsagePercent,
-				alert.Metrics.Memory.UsagePercent,
-				alert.Metrics.LoadAverage.Load1Min,
-			)
-			
-			sm.logger.Infof("🖥️  Sending system alert to: %s", strings.Join(sm.emailConfig.To, ", "))
+			sm.logger.Infof("🖥️  Sending system alert to: %s", sm.emailService.GetRecipientsList())
 			go func() {
-				if err := sm.sendEmail(subject, body); err != nil {
+				if err := sm.emailService.SendEmail(subject, body); err != nil {
 					sm.logger.Errorf("❌ Failed to send system alert email: %v", err)
 				}
 			}()
 		}
 		
-		// 슬랙 알림
-		if sm.slackConfig.Enabled {
-			color := "warning"
-			if alert.Level == "CRITICAL" {
-				color = "danger"
-			} else if alert.Level == "MEDIUM" {
-				color = "warning"
-			} else {
-				color = "good"
-			}
-			
-			fields := []SlackField{
-				{Title: "알림 레벨", Value: alert.Level, Short: true},
-				{Title: "타입", Value: alert.Type, Short: true},
-				{Title: "현재 값", Value: fmt.Sprintf("%.2f", alert.Value), Short: true},
-				{Title: "임계값", Value: fmt.Sprintf("%.2f", alert.Threshold), Short: true},
-				{Title: "CPU", Value: fmt.Sprintf("%.1f%%", alert.Metrics.CPU.UsagePercent), Short: true},
-				{Title: "메모리", Value: fmt.Sprintf("%.1f%%", alert.Metrics.Memory.UsagePercent), Short: true},
-			}
-			
-			slackMsg := SlackMessage{
-				Text:      fmt.Sprintf("🖥️  *시스템 알림* - %s", alert.Message),
-				IconEmoji: ":warning:",
-				Username:  "System Monitor",
-				Attachments: []SlackAttachment{
-					{
-						Color:     color,
-						Title:     fmt.Sprintf("%s Alert", alert.Type),
-						Fields:    fields,
-						Timestamp: time.Now().Unix(),
-					},
-				},
-			}
+		// Slack 알림 (SlackService 사용)
+		if sm.slackService != nil {
+			slackMsg := sm.slackService.CreateSystemAlert(alert)
 			
 			go func() {
-				if err := sm.sendSlackMessage(slackMsg); err != nil {
+				if err := sm.slackService.SendMessage(slackMsg); err != nil {
 					sm.logger.Errorf("❌ Failed to send system alert to Slack: %v", err)
 				}
 			}()
@@ -1325,7 +936,7 @@ func main() {
 
 		fmt.Println("Sending test Slack message...")
 		
-		monitor := NewSyslogMonitor(*logFile, *outputFile, filters, keywords, emailConfig, slackConfig, *aiEnabled, *systemEnabled)
+		monitor := NewSyslogMonitor(*logFile, *outputFile, filters, keywords, emailConfig, slackConfig, *aiEnabled, *systemEnabled, *loginWatch)
 		
 		testMsg := SlackMessage{
 			Text:      "🧪 *Test Message from Syslog Monitor*",
@@ -1345,7 +956,7 @@ func main() {
 			},
 		}
 
-		if err := monitor.sendSlackMessage(testMsg); err != nil {
+		if err := monitor.slackService.SendMessage(testMsg); err != nil {
 			fmt.Printf("Test Slack message failed: %v\n", err)
 			fmt.Println("\nTroubleshooting:")
 			fmt.Println("1. Check your Slack webhook URL")
@@ -1368,7 +979,7 @@ func main() {
 
 		fmt.Println("Sending test email...")
 		
-		monitor := NewSyslogMonitor(*logFile, *outputFile, filters, keywords, emailConfig, slackConfig, *aiEnabled, *systemEnabled)
+		monitor := NewSyslogMonitor(*logFile, *outputFile, filters, keywords, emailConfig, slackConfig, *aiEnabled, *systemEnabled, *loginWatch)
 		subject := "[TEST] Syslog Monitor Email Test"
 		body := fmt.Sprintf(`이것은 syslog 모니터의 테스트 이메일입니다.
 
@@ -1382,7 +993,7 @@ SMTP 서버: %s:%s
 Syslog Monitor
 `, time.Now().Format("2006-01-02 15:04:05"), *smtpServer, *smtpPort, *emailFrom, strings.Join(emailConfig.To, ", "))
 
-		if err := monitor.sendEmail(subject, body); err != nil {
+		if err := monitor.emailService.SendEmail(subject, body); err != nil {
 			fmt.Printf("Test email failed: %v\n", err)
 			fmt.Println("\nTroubleshooting:")
 			fmt.Println("1. Check your Gmail App Password")
@@ -1396,7 +1007,7 @@ Syslog Monitor
 	}
 
 	// 감시 서비스 생성 및 시작
-	monitor := NewSyslogMonitor(*logFile, *outputFile, filters, keywords, emailConfig, slackConfig, *aiEnabled, *systemEnabled)
+	monitor := NewSyslogMonitor(*logFile, *outputFile, filters, keywords, emailConfig, slackConfig, *aiEnabled, *systemEnabled, *loginWatch)
 	
 	if err := monitor.Start(); err != nil {
 		fmt.Printf("Error: %v\n", err)
