@@ -1,0 +1,10 @@
+Jul 26 00:20:01 server01 sshd[1234]: Accepted password for admin from 192.168.1.100 port 22 ssh2
+Jul 26 00:20:05 server01 sshd[1235]: Failed password for root from 192.168.1.200 port 22 ssh2
+Jul 26 00:20:10 server01 sudo: admin : TTY=pts/0 ; PWD=/home/admin ; USER=root ; COMMAND=/usr/bin/apt update
+Jul 26 00:20:15 server01 login: user john logged in from console
+Jul 26 00:20:20 server01 apache2: Authentication successful for user 'alice' from 192.168.1.150
+Jul 26 00:20:25 server01 sshd[1236]: Accepted publickey for deploy from 192.168.1.50 port 22 ssh2
+Jul 26 00:20:30 server01 sudo: deploy : TTY=pts/1 ; PWD=/var/www ; USER=www-data ; COMMAND=/bin/systemctl restart nginx
+Jul 26 00:20:35 server01 sshd[1237]: Failed password for hacker from 203.0.113.10 port 22 ssh2
+Jul 26 00:20:40 server01 webapp: Login attempt for user 'manager' from 192.168.1.75
+Jul 26 00:20:45 server01 mysql: Error 1045 (28000): Access denied for user 'baduser'@'192.168.1.99' 
