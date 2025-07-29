@@ -1,667 +1,721 @@
-# AI-Powered Syslog Monitor
+# 🤖 AI-Powered Syslog Monitor v2.0
 
-**🤖 AI 기반 로그 분석 및 시스템 모니터링 도구**
+**AI 기반 로그 분석 및 시스템 모니터링 도구**
 
-리눅스와 macOS 시스템의 syslog를 실시간으로 감시하고 AI 기반 이상 징후 분석, 시스템 메트릭 모니터링, **다중 플랫폼 알림**을 제공하는 차세대 모니터링 솔루션입니다.
+리눅스와 macOS 시스템의 syslog를 실시간으로 감시하고 **차세대 AI 기반 이상 징후 분석**, 시스템 메트릭 모니터링, **향상된 다중 플랫폼 알림**을 제공하는 최신 모니터링 솔루션입니다.
 
-## 목차
-- [기능](#기능)
-- [빠른 시작](#빠른-시작-quick-start)
-- [빌드 방법](#빌드-방법)
-- [상세 사용법](#상세-사용법)
-- [명령행 옵션](#명령행-옵션)
-- [환경변수](#환경변수)
-- [Gmail 설정 방법](#gmail-설정-방법)
-- [테스트 가이드](#테스트-가이드)
-- [문제 해결 및 FAQ](#문제-해결-및-faq)
-- [시스템 서비스로 실행](#시스템-서비스로-실행)
+## 🆕 v2.0 새로운 기능
 
-## 기능
+### 📍 **시스템 정보 자동 수집**
+- **컴퓨터 이름 자동 감지**: 알람 시 호스트명 자동 포함
+- **내부/외부 IP 분류**: RFC 1918 표준 준수 자동 분류
+- **실시간 네트워크 정보**: 시스템의 모든 IP 주소 수집
 
-### 🔍 기본 모니터링
-- **실시간 로그 감시**: syslog 파일을 실시간으로 모니터링
-- **키워드 필터링**: 특정 키워드가 포함된 로그만 표시
-- **정규식 필터**: 정규식을 사용한 로그 제외 필터링
-- **로그 레벨 분류**: ERROR, WARNING, CRITICAL, INFO 자동 분류
-- **파일 출력**: 필터링된 로그를 파일로 저장
+### 🌐 **ASN 정보 실시간 조회**
+- **조직 정보**: 외부 IP의 소속 조직 자동 조회
+- **지리적 위치**: 국가, 지역, 도시 정보 수집
+- **보안 위협 분석**: ASN 기반 위험도 평가
 
-### 🤖 AI 기반 로그 분석
-- **이상 패턴 감지**: SQL 인젝션, 무차별 대입 공격, 메모리 누수 등 자동 감지
-- **예측 분석**: 시스템 장애 및 보안 위협 사전 예측
-- **위협 레벨 평가**: 실시간 위험도 점수 계산 (0-10점)
-- **다중 로그 포맷 지원**: Apache, Nginx, MySQL, PostgreSQL, 애플리케이션 로그
-- **시간 패턴 분석**: 야간/주말 비정상 활동 감지
-- **빈도 분석**: 비정상적인 로그 급증 패턴 감지
+### 🚨 **향상된 알람 시스템**
+- **상세한 시스템 정보 포함**: 컴퓨터명, IP, ASN 정보
+- **맞춤형 보안 권장사항**: AI 기반 대응 가이드
+- **실시간 위협 예측**: 보안 사고 사전 예방
 
-### 🖥️ 시스템 메트릭 모니터링
-- **실시간 시스템 감시**: CPU, 메모리, 디스크, 온도 모니터링
-- **임계값 알림**: 설정 가능한 임계값 초과 시 즉시 알림
-- **로드 평균 추적**: 시스템 부하 상태 실시간 모니터링
-- **네트워크 상태**: 패킷 손실, 에러율 추적
-- **디스크 공간**: 사용률 및 inode 사용률 모니터링
-- **프로세스 상태**: 실행 중인 프로세스 수 추적
+## 📋 목차
+- [핵심 기능](#핵심-기능)
+- [빠른 시작](#빠른-시작)
+- [설치 방법](#설치-방법)
+- [사용법](#사용법)
+- [AI 분석 기능](#ai-분석-기능)
+- [시스템 모니터링](#시스템-모니터링)
+- [알림 설정](#알림-설정)
+- [테스트](#테스트)
+- [문제 해결](#문제-해결)
 
-### 📧 다중 알림 시스템
-- **이메일 알림**: 에러/크리티컬 로그 발생 시 자동 이메일 전송
-- **Slack 통합**: 실시간 Slack 채널 알림
-- **Gmail 지원**: Gmail SMTP를 통한 이메일 알림
-- **환경변수 설정**: 환경변수를 통한 간편한 이메일 설정
-- **AI 분석 결과 알림**: 이상 징후 감지 시 상세 분석 보고서 전송
-- **시스템 알림**: 시스템 임계값 초과 시 즉시 알림
+## 🚀 핵심 기능
 
-### 🔐 보안 기능
-- **로그인 모니터링**: SSH, sudo, 웹 로그인 패턴 감지
-- **보안 위협 탐지**: 권한 상승, 무차별 대입 공격 등
-- **IP 추적**: 의심스러운 IP 주소 자동 추적
-- **신호 처리**: Ctrl+C로 안전한 종료
+### 🔍 **실시간 로그 모니터링**
+- **지능형 패턴 인식**: SQL 인젝션, 무차별 대입 공격, 권한 상승 등
+- **다중 로그 포맷 지원**: Apache, Nginx, MySQL, PostgreSQL, 시스템 로그
+- **키워드 및 정규식 필터링**: 정밀한 로그 필터링
+- **실시간 분석**: 지연 없는 즉시 위험 감지
 
-## 빌드 방법
-
-### 필요 조건
-- Go 1.21 이상
-- Linux 또는 macOS
-
-### 빌드 명령어
-
-```bash
-# 의존성 설치
-make install
-
-# 현재 플랫폼용 빌드
-make build
-
-# Linux용 빌드 (크로스 컴파일)
-make build-linux
-
-# macOS/Unix용 빌드
-make build-unix
-
-# 빌드 결과물 정리
-make clean
+### 🤖 **AI 기반 위험 분석**
+```
+🎯 지원하는 위험 패턴:
+├── 🔴 SQL 인젝션 공격 감지
+├── 🟠 무차별 대입 공격 탐지  
+├── 🟡 메모리 누수 패턴 분석
+├── 🔵 데이터베이스 연결 문제
+├── 🟣 비정상적인 트래픽 급증
+├── 🟤 파일 시스템 오류
+└── ⚫ 권한 상승 시도 감지
 ```
 
-## 사용법
+### 🖥️ **종합 시스템 모니터링**
+- **실시간 메트릭**: CPU, 메모리, 디스크, 온도
+- **네트워크 상태**: 패킷 손실률, 연결 상태
+- **프로세스 추적**: 비정상 프로세스 감지
+- **임계값 알림**: 사용자 정의 알림 기준
 
-### 기본 사용법
+### 📧 **다중 채널 알림**
+- **이메일 알림**: Gmail SMTP 지원, 다중 수신자
+- **Slack 통합**: 실시간 채널 알림
+- **상세 보고서**: AI 분석 결과 포함된 알림
 
-```bash
-# 기본 syslog 파일 (/var/log/syslog) 감시
-./syslog-monitor
+## ⚡ 빠른 시작
 
-# 특정 파일 감시
-./syslog-monitor -file=/var/log/auth.log
-
-# 도움말 보기
-./syslog-monitor -help
-```
-
-### 고급 사용법
+### macOS 사용자 (권장)
 
 ```bash
-# 특정 키워드만 포함된 로그 감시
-./syslog-monitor -keywords=error,failed,warning
+# 1. 저장소 클론
+git clone <repository-url>
+cd syslog-monitor
 
-# 특정 패턴 제외하고 감시 (정규식 사용)
-./syslog-monitor -filters="systemd,kernel"
+# 2. v2.0 자동 설치 (권장)
+./install-macos-v2.sh
 
-# 결과를 파일로 저장
-./syslog-monitor -output=security.log -keywords=failed,unauthorized
-
-# 복합 필터링 예제
-./syslog-monitor -file=/var/log/auth.log -keywords=failed,error -output=security_alerts.log
-```
-
-## 명령행 옵션
-
-| 옵션 | 기본값 | 설명 |
-|------|--------|------|
-| `-file` | `/var/log/syslog` | 감시할 syslog 파일 경로 |
-| `-keywords` | (없음) | 포함할 키워드 (쉼표로 구분) |
-| `-filters` | (없음) | 제외할 정규식 패턴 (쉼표로 구분) |
-| `-output` | stdout | 출력할 파일 경로 |
-| `-email-to` | (없음) | 알림받을 이메일 주소 (쉼표로 구분) |
-| `-email-from` | (자동설정) | 발신자 이메일 주소 |
-| `-smtp-server` | `smtp.gmail.com` | SMTP 서버 주소 |
-| `-smtp-port` | `587` | SMTP 포트 |
-| `-smtp-user` | (없음) | SMTP 사용자명 |
-| `-smtp-password` | (없음) | SMTP 비밀번호 |
-| `-test-email` | - | 테스트 이메일 전송 후 종료 |
-| `-help` | - | 도움말 표시 |
-
-## 환경변수
-
-| 변수명 | 설명 |
-|--------|------|
-| `SYSLOG_EMAIL_TO` | 알림받을 이메일 주소 (쉼표로 구분) |
-| `SYSLOG_EMAIL_FROM` | 발신자 이메일 주소 |
-| `SYSLOG_SMTP_SERVER` | SMTP 서버 주소 |
-| `SYSLOG_SMTP_PORT` | SMTP 포트 |
-| `SYSLOG_SMTP_USER` | SMTP 사용자명 |
-| `SYSLOG_SMTP_PASSWORD` | SMTP 비밀번호 |
-
-## Gmail 설정 방법
-
-### 1. 2단계 인증 활성화
-1. [Google 계정 설정](https://myaccount.google.com/) 접속
-2. 보안 > 2단계 인증 활성화
-
-### 2. App Password 생성
-1. [App Passwords](https://myaccount.google.com/apppasswords) 접속
-2. 앱 선택 > 메일
-3. 기기 선택 > 기타 (사용자 정의 이름)
-4. 생성된 16자리 비밀번호 복사
-
-### 3. 설정 적용
-```bash
-# 간편 설정 스크립트 사용
-./email-setup.sh
-
-# 또는 직접 환경변수 설정
-export SYSLOG_EMAIL_TO="enfn2001@gmail.com"
-export SYSLOG_SMTP_USER="your@gmail.com"
-export SYSLOG_SMTP_PASSWORD="generated-app-password"
-
-# 테스트
-./syslog-monitor -test-email
-```
-
-## 빠른 시작 (Quick Start)
-
-### 🍎 macOS 사용자 (권장)
-```bash
-# 원클릭 설치 (AI 분석 + 시스템 모니터링 포함)
-./install-macos.sh
-
-# 또는 수동 설치
-make build-macos && sudo make install-macos
-
-# AI 기반 모니터링 시작
+# 3. 즉시 사용
 syslog-monitor -ai-analysis -system-monitor
 ```
 
-### 🐧 Linux 사용자
-```bash
-# 빌드
-make build-linux
+### 수동 설치
 
-# AI 기반 모니터링 시작  
-./syslog-monitor_linux -ai-analysis -system-monitor
+```bash
+# 1. 빌드
+make build-macos         # macOS용
+make build-linux         # Linux용
+
+# 2. 설치
+sudo cp syslog-monitor_* /usr/local/bin/syslog-monitor
+sudo chmod +x /usr/local/bin/syslog-monitor
+
+# 3. 실행
+syslog-monitor -help
 ```
 
-### 🚀 즉시 실행 (기본 설정)
+## 🛠️ 설치 방법
+
+### macOS 설치 스크립트 v2.0
+
+**새로운 설치 스크립트**는 다음 기능들을 자동으로 설정합니다:
+
 ```bash
-# 현재 플랫폼용 빌드
+./install-macos-v2.sh
+```
+
+#### 설치 스크립트 기능:
+- ✅ **시스템 요구사항 자동 확인**
+- ✅ **Apple Silicon/Intel 자동 감지**
+- ✅ **의존성 자동 설치** (Go, Homebrew, istats)
+- ✅ **최적화된 빌드** (아키텍처별)
+- ✅ **자동 시작 설정** (LaunchAgent)
+- ✅ **설정 파일 생성** (새로운 AI 기능 포함)
+- ✅ **종합 테스트 실행**
+
+#### 설치 후 확인:
+```bash
+# 설치 확인
+which syslog-monitor
+
+# 새로운 AI 기능 확인
+cat ~/.syslog-monitor/config.json
+
+# 컴퓨터명 확인
+hostname
+```
+
+### Linux 설치
+
+```bash
+# Ubuntu/Debian
+sudo apt update && sudo apt install golang-go git
+
+# CentOS/RHEL
+sudo yum install golang git
+
+# 빌드 및 설치
+git clone <repository-url>
+cd syslog-monitor
+make build-linux
+sudo cp syslog-monitor_linux /usr/local/bin/syslog-monitor
+```
+
+### 빌드 옵션
+
+```bash
+# 현재 플랫폼용
 make build
 
-# 기본 설정으로 즉시 시작 (robot@lambda-x.ai, enfn2001@gmail.com에게 자동 알림)
-./syslog-monitor
+# macOS 전용 빌드
+make build-macos              # 현재 아키텍처
+make build-macos-arm64        # Apple Silicon
+make build-macos-intel        # Intel Mac
+make build-macos-universal    # 유니버설 바이너리
 
-# AI 분석 + 시스템 모니터링 활성화
-./syslog-monitor -ai-analysis -system-monitor
+# 모든 플랫폼
+make build-all
 
-# 테스트 이메일 전송
-./syslog-monitor -test-email
+# 정리
+make clean
 ```
 
-### 📧 이메일 알림 테스트
+## 📖 사용법
 
-#### 1. 기본 설정 테스트 (2명 수신자)
+### 기본 명령어
+
 ```bash
-./syslog-monitor -test-email
-# 결과: robot@lambda-x.ai, enfn2001@gmail.com에게 전송
+# 기본 모니터링
+syslog-monitor
+
+# AI 분석 활성화 (권장)
+syslog-monitor -ai-analysis
+
+# 전체 기능 활성화
+syslog-monitor -ai-analysis -system-monitor -login-watch
+
+# 특정 로그 파일 모니터링
+syslog-monitor -file=/var/log/auth.log -ai-analysis
 ```
 
-#### 2. 커스텀 여러 명 테스트
+### macOS 사용자 전용
+
 ```bash
-./syslog-monitor -test-email -email-to="admin@company.com,security@company.com,ops@company.com"
-# 결과: 3명에게 동시 전송
+# 실시간 시스템 로그 (권한 필요)
+sudo log stream | syslog-monitor -file=/dev/stdin -ai-analysis
+
+# 특정 로그 파일들
+syslog-monitor -file=/var/log/system.log -ai-analysis
+syslog-monitor -file=/var/log/install.log -keywords=error
+syslog-monitor -file=/var/log/wifi.log -system-monitor
+
+# 에러 로그만 필터링
+sudo log show --predicate 'eventMessage contains "error"' --last 1h
 ```
 
-## 상세 사용법
+### 고급 사용 예시
 
-### 1. 🤖 AI 기반 로그 분석
 ```bash
-# AI 이상 징후 감지 활성화
-./syslog-monitor -ai-analysis
+# 보안 모니터링 (SSH, sudo 로그인 감시)
+syslog-monitor -ai-analysis -login-watch
 
-# 특정 로그 타입으로 AI 분석
-./syslog-monitor -file=/var/log/nginx/access.log -log-type=nginx -ai-analysis
+# 성능 모니터링
+syslog-monitor -system-monitor -keywords="memory,cpu,disk"
 
-# 데이터베이스 로그 AI 분석
-./syslog-monitor -file=/var/log/mysql/error.log -log-type=mysql -ai-analysis
+# 다중 채널 알림
+syslog-monitor -ai-analysis \
+  -email-to="admin@company.com,security@company.com" \
+  -slack-webhook="https://hooks.slack.com/..."
+
+# 필터링 및 출력
+syslog-monitor -keywords="error,failed" \
+  -filters="systemd,kernel" \
+  -output=./filtered.log
 ```
 
-### 2. 🖥️ 시스템 메트릭 모니터링
-```bash
-# 시스템 리소스 모니터링 활성화
-./syslog-monitor -system-monitor
+## 🤖 AI 분석 기능
 
-# AI 분석 + 시스템 모니터링 통합
-./syslog-monitor -ai-analysis -system-monitor
+### 새로운 v2.0 AI 기능
 
-# macOS 특화 모니터링 (배터리, APFS, 온도)
-./syslog-monitor -ai-analysis -system-monitor -file=/var/log/system.log
+#### 1. 시스템 정보 자동 수집
+```json
+{
+  "computer_name": "beakerui-MacBookPro.local",
+  "internal_ips": ["192.168.1.100", "10.0.0.50"],
+  "external_ips": ["203.0.113.42"],
+  "asn_data": [
+    {
+      "ip": "203.0.113.42",
+      "organization": "Example Corp",
+      "country": "United States",
+      "asn": "AS64496"
+    }
+  ]
+}
 ```
 
-### 3. 🔍 기본 syslog 감시
-```bash
-# 기본 syslog 파일 감시 (이메일 알림 포함)
-./syslog-monitor
+#### 2. 지능형 위험 감지
+- **SQL 인젝션**: `OR 1=1`, `UNION SELECT` 등 패턴 감지
+- **무차별 대입 공격**: 반복 로그인 실패 패턴 분석
+- **권한 상승**: `sudo su`, 비인가 접근 감지
+- **메모리 누수**: 메모리 할당 실패 패턴 분석
 
-# 특정 파일 감시
-./syslog-monitor -file=/var/log/auth.log
-
-# 특정 키워드만 감시
-./syslog-monitor -keywords=error,critical,failed,warning
-
-# 완전한 보안 모니터링
-./syslog-monitor -login-watch -ai-analysis -keywords=failed,error,critical
+#### 3. 예측 분석
+```
+🔮 AI 예측 예시:
+┌─────────────────────────────────────┐
+│ 시스템 메모리 부족                    │
+│ 확률: 75% | 시간: 30분 이내           │
+│ 영향: 서비스 중단 가능성               │
+│ 권장: 메모리 정리 및 프로세스 점검      │
+└─────────────────────────────────────┘
 ```
 
-### 4. 📧 이메일 알림 설정
+### AI 분석 설정
 
-#### 방법 1: 기본 설정 사용 (추천)
 ```bash
-# 자동으로 robot@lambda-x.ai, enfn2001@gmail.com에게 알림
-./syslog-monitor -keywords=error,critical,failed
+# AI 분석 임계값 조정
+syslog-monitor -ai-analysis -alert-threshold=8.0
 
-# AI 분석 결과 알림 포함
-./syslog-monitor -ai-analysis -system-monitor
+# 특정 로그 타입만 AI 분석
+syslog-monitor -ai-analysis -log-type=nginx
+
+# AI 분석 결과 로그 저장
+syslog-monitor -ai-analysis -output=./ai-analysis.log
 ```
 
-#### 방법 2: 여러 명 커스텀 설정
-```bash
-# 팀 전체에게 알림
-./syslog-monitor -email-to="admin@company.com,security@company.com,ops@company.com,cto@company.com"
+## 🖥️ 시스템 모니터링
 
-# 프로젝트 팀에게 알림
-./syslog-monitor -file=/var/log/app.log -email-to="dev@lambda-x.ai,ops@lambda-x.ai,pm@lambda-x.ai"
+### 모니터링 메트릭
+
+| 메트릭 | 설명 | 임계값 |
+|--------|------|--------|
+| **CPU 사용률** | 실시간 CPU 사용량 | 80% |
+| **메모리 사용률** | RAM 사용률 | 85% |
+| **디스크 사용률** | 디스크 공간 사용률 | 90% |
+| **로드 평균** | 시스템 부하 | 2.0 |
+| **온도** | CPU/시스템 온도 | 70°C |
+| **네트워크** | 패킷 손실률 | 5% |
+
+### 시스템 모니터링 명령어
+
+```bash
+# 기본 시스템 모니터링
+syslog-monitor -system-monitor
+
+# 사용자 정의 임계값
+syslog-monitor -system-monitor -cpu-threshold=70 -memory-threshold=80
+
+# 온도 모니터링 (macOS - istats 필요)
+brew install istat-menus
+syslog-monitor -system-monitor
+
+# 실시간 시스템 상태 보고서
+syslog-monitor -system-monitor -report-interval=300  # 5분마다
 ```
 
-#### 방법 3: 간편 설정 스크립트
-```bash
-./email-setup.sh  # 대화형 설정
-source .env        # 환경변수 로드
-./syslog-monitor -test-email  # 테스트
-```
+## 📧 알림 설정
 
-#### 방법 4: 환경변수 설정
+### 이메일 알림
+
+#### 환경변수 설정 (권장)
 ```bash
-export SYSLOG_EMAIL_TO="team1@company.com,team2@company.com,manager@company.com"
+export SYSLOG_EMAIL_TO="admin@company.com,security@company.com"
 export SYSLOG_SMTP_USER="your@gmail.com"
 export SYSLOG_SMTP_PASSWORD="your-app-password"
-./syslog-monitor
+
+syslog-monitor -ai-analysis
 ```
 
-### 5. 🏢 실제 운영 시나리오
-
-#### 🛡️ 통합 보안 모니터링 (AI + 시스템)
+#### 명령행 설정
 ```bash
-./syslog-monitor \
-  -ai-analysis \
-  -system-monitor \
-  -login-watch \
-  -file=/var/log/auth.log \
-  -keywords=failed,unauthorized,invalid,breach \
-  -email-to="security@company.com,admin@company.com,ciso@company.com" \
-  -slack-webhook="https://hooks.slack.com/..." \
-  -output=security_alerts.log
+syslog-monitor -ai-analysis \
+  -email-to="admin@company.com,security@company.com" \
+  -smtp-user="your@gmail.com" \
+  -smtp-password="your-app-password"
 ```
 
-#### 🍎 macOS 서버 모니터링
+#### Gmail 설정
+1. **2단계 인증 활성화**: Google 계정에서 2단계 인증 설정
+2. **앱 비밀번호 생성**: https://myaccount.google.com/apppasswords
+3. **앱 비밀번호 사용**: 일반 비밀번호 대신 앱 비밀번호 사용
+
+### Slack 알림
+
 ```bash
-./syslog-monitor \
-  -ai-analysis \
-  -system-monitor \
-  -file=/var/log/system.log \
-  -keywords=error,warning,failed \
-  -email-to="ops@company.com,admin@company.com"
+# Slack 웹훅 설정
+syslog-monitor -ai-analysis \
+  -slack-webhook="https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK" \
+  -slack-channel="#security-alerts"
+
+# 환경변수 사용
+export SYSLOG_SLACK_WEBHOOK="https://hooks.slack.com/..."
+export SYSLOG_SLACK_CHANNEL="#alerts"
+syslog-monitor -ai-analysis
 ```
 
-#### 🌐 웹서버 성능 + 보안 모니터링
+### 향상된 알림 내용
+
+v2.0의 알림에는 다음 정보가 포함됩니다:
+
+```
+🚨 보안 이상 탐지 알람
+======================
+⚠️  위협 레벨: 🔴 CRITICAL
+📊 이상 점수: 9.0/10.0
+🕐 탐지 시간: 2025-07-29 15:30:00
+
+🖥️  시스템 정보:
+  📍 컴퓨터명: beakerui-MacBookPro.local
+  🏠 내부 IP: 192.168.1.100, 10.0.0.50
+  🌐 외부 IP: 203.0.113.42
+
+🔍 ASN 정보:
+  📍 203.0.113.42
+    🏢 조직: Example Corp
+    🌍 국가: United States, California, San Francisco
+    🔢 ASN: AS64496
+
+📋 로그 정보:
+  📝 레벨: CRITICAL
+  🏷️  서비스: database
+  💬 메시지: SQL injection attempt detected
+
+🔮 위험 예측:
+  ⚡ 추가 공격 시도 (확률: 85%, 1시간 이내)
+    💥 영향: 데이터 유출 위험
+
+💡 권장사항:
+  • 🚨 즉시 보안팀에 알림
+  • 🔒 해당 IP 주소 차단 검토
+  • 📊 시스템 리소스 사용량 확인
+
+🎯 신뢰도: 95%
+```
+
+## 🧪 테스트
+
+### 빠른 기본 테스트
+
 ```bash
-./syslog-monitor \
-  -file=/var/log/nginx/access.log \
-  -log-type=nginx \
-  -ai-analysis \
-  -keywords=error,502,503,504 \
-  -email-to="webteam@company.com,ops@company.com"
+# 간단한 기능 테스트
+./simple-test.sh
 ```
 
-#### 웹서버 에러 감시
+예상 출력:
+```
+🧪 AI Syslog Monitor 간단 테스트
+==================================
+1️⃣ 기본 설치 확인
+✅ 실행 파일 설치됨
+✅ 설정 파일 생성됨
+✅ 컴퓨터명 감지 기능 활성화
+✅ IP 분류 기능 활성화
+✅ ASN 조회 기능 활성화
+
+2️⃣ 시스템 정보 수집
+✅ 컴퓨터명 수집: beakerui-MacBookPro.local
+✅ 시스템 아키텍처: arm64
+✅ 인터넷 연결 (ASN 조회 가능)
+
+📊 테스트 결과: 100% 통과
+🎉 모든 테스트 통과!
+```
+
+### 종합 상세 테스트
+
 ```bash
-./syslog-monitor \
-  -file=/var/log/nginx/error.log \
-  -keywords=error,502,503,504 \
-  -email-to="webteam@company.com,ops@company.com"
+# 전체 기능 테스트 (10-15분 소요)
+./test-ai-features.sh
 ```
 
-#### 데이터베이스 크리티컬 감시
+테스트 항목:
+- ✅ 설치 상태 확인
+- ✅ 기본 실행 테스트
+- ✅ 시스템 정보 수집
+- ✅ AI 분석 기능
+- ✅ 보안 위협 시나리오 (6가지)
+- ✅ ASN 정보 조회
+- ✅ IP 주소 분류
+- ✅ 성능 테스트 (1000줄 로그)
+- ✅ 메모리 사용량
+- ✅ 로그 출력 형식
+
+### 수동 테스트
+
 ```bash
-./syslog-monitor \
-  -file=/var/log/mysql/error.log \
-  -keywords=critical,error,crash,deadlock \
-  -email-to="dba@company.com,ops@company.com,cto@company.com"
+# 이메일 알림 테스트
+syslog-monitor -test-email
+
+# Slack 알림 테스트  
+syslog-monitor -test-slack -slack-webhook="YOUR_WEBHOOK"
+
+# AI 분석 테스트
+echo "$(date) CRITICAL [security] SQL injection detected" | \
+  syslog-monitor -file=/dev/stdin -ai-analysis
 ```
 
-#### 로그 필터링 + 다중 알림
+## ⚙️ 설정 파일
+
+### 자동 생성된 설정 파일
+위치: `~/.syslog-monitor/config.json`
+
+```json
+{
+    "ai_analysis": true,
+    "system_monitoring": true,
+    "log_file": "/var/log/system.log",
+    "alert_threshold": 7.0,
+    "email_alerts": true,
+    "slack_alerts": false,
+    "features": {
+        "computer_name_detection": true,
+        "ip_classification": true,
+        "asn_lookup": true,
+        "real_time_analysis": true
+    }
+}
+```
+
+### 환경변수
+
+| 변수명 | 설명 | 기본값 |
+|--------|------|--------|
+| `SYSLOG_EMAIL_TO` | 수신자 이메일 (쉼표 구분) | `robot@lambda-x.ai,enfn2001@gmail.com` |
+| `SYSLOG_SMTP_USER` | SMTP 사용자명 | `enfn2001@gmail.com` |
+| `SYSLOG_SMTP_PASSWORD` | SMTP 비밀번호/앱 비밀번호 | 설정됨 |
+| `SYSLOG_SLACK_WEBHOOK` | Slack 웹훅 URL | - |
+| `SYSLOG_SLACK_CHANNEL` | Slack 채널 | - |
+
+## 🔧 명령행 옵션
+
+### 기본 옵션
 ```bash
-# systemd, kernel 로그 제외하고 감시
-./syslog-monitor \
-  -filters="systemd.*,kernel.*,cron.*" \
-  -keywords=error,critical,failed \
-  -email-to="admin@company.com,security@company.com"
+syslog-monitor [옵션]
+
+주요 옵션:
+  -file string          모니터링할 로그 파일 경로
+  -output string        필터링된 로그 출력 파일
+  -keywords string      포함할 키워드 (쉼표 구분)
+  -filters string       제외할 패턴 (정규식, 쉼표 구분)
+  -help                 도움말 표시
 ```
 
-## 실행 출력 예시
-
-### 시작 시 출력
+### AI 분석 옵션
 ```bash
-$ ./syslog-monitor -file=test.log -keywords=error,critical,failed
-
-📧 Email alerts enabled with DEFAULT settings
-    📨 Recipients (2): robot@lambda-x.ai, enfn2001@gmail.com
-    🔑 Using built-in Gmail credentials (enfn2001@gmail.com)
-    💡 To add more recipients: -email-to="user1@example.com,user2@example.com"
-
-INFO[2025-07-26 00:12:42] Starting syslog monitor for file: test.log   
-INFO[2025-07-26 00:12:42] Syslog monitor started. Press Ctrl+C to stop. 
-2025/07/26 00:12:42 Seeked test.log - &{Offset:0 Whence:2}
+  -ai-analysis          AI 기반 로그 분석 활성화
+  -alert-threshold      AI 알림 임계값 (기본: 7.0)
+  -log-type string      로그 타입 (auto, apache, nginx, mysql)
 ```
 
-### 에러 감지 및 이메일 전송
+### 시스템 모니터링 옵션
 ```bash
-ERRO[2025-07-26 00:12:55] Error loading configuration file - file not found  fields.level=ERROR host=server01 service="app:"
-INFO[2025-07-26 00:12:55] 📧 Sending ERROR alert to: robot@lambda-x.ai, enfn2001@gmail.com 
-INFO[2025-07-26 00:12:58] ✅ Gmail email sent successfully to: robot@lambda-x.ai, enfn2001@gmail.com 
-
-FATA[2025-07-26 00:13:10] Critical database failure - all connections lost  fields.level=CRITICAL host=database service="mysql:"
-INFO[2025-07-26 00:13:10] 🚨 Sending CRITICAL alert to: robot@lambda-x.ai, enfn2001@gmail.com 
-INFO[2025-07-26 00:13:13] ✅ Gmail email sent successfully to: robot@lambda-x.ai, enfn2001@gmail.com 
+  -system-monitor       시스템 메트릭 모니터링 활성화
+  -cpu-threshold        CPU 사용률 임계값 (기본: 80)
+  -memory-threshold     메모리 사용률 임계값 (기본: 85)
+  -disk-threshold       디스크 사용률 임계값 (기본: 90)
 ```
 
-### 테스트 이메일 출력
+### 알림 옵션
 ```bash
-$ ./syslog-monitor -test-email
-
-📧 Email alerts enabled with DEFAULT settings
-    📨 Recipients (2): robot@lambda-x.ai, enfn2001@gmail.com
-    🔑 Using built-in Gmail credentials (enfn2001@gmail.com)
-    💡 To add more recipients: -email-to="user1@example.com,user2@example.com"
-
-Sending test email...
-INFO[2025-07-26 00:12:10] ✅ Gmail email sent successfully to: robot@lambda-x.ai, enfn2001@gmail.com 
-✅ Test email sent successfully to 2 recipients: robot@lambda-x.ai, enfn2001@gmail.com
+  -email-to string      수신자 이메일 (쉼표 구분)
+  -smtp-server string   SMTP 서버 (기본: smtp.gmail.com)
+  -smtp-port string     SMTP 포트 (기본: 587)
+  -smtp-user string     SMTP 사용자명
+  -smtp-password string SMTP 비밀번호
+  -slack-webhook string Slack 웹훅 URL
+  -slack-channel string Slack 채널
 ```
 
-### 여러 명 커스텀 설정 출력
+### 보안 옵션
 ```bash
-$ ./syslog-monitor -test-email -email-to="admin@company.com,security@company.com,ops@company.com"
-
-📧 Email alerts enabled with CUSTOM settings
-    📨 Recipients (3): admin@company.com, security@company.com, ops@company.com
-
-Sending test email...
-INFO[2025-07-26 00:12:30] ✅ Gmail email sent successfully to: admin@company.com, security@company.com, ops@company.com
-✅ Test email sent successfully to 3 recipients: admin@company.com, security@company.com, ops@company.com
+  -login-watch          로그인 모니터링 활성화 (SSH, sudo, 웹)
 ```
 
-## 로그 레벨 분류
+### 테스트 옵션
+```bash
+  -test-email           이메일 설정 테스트
+  -test-slack           Slack 설정 테스트
+```
 
-- **🔴 ERROR**: "error", "err" 키워드 포함 → 이메일 알림 전송
-- **⚠️ WARNING**: "warn", "warning" 키워드 포함 → 로그만 기록
-- **🚨 CRITICAL**: "critical", "fail" 키워드 포함 → 긴급 이메일 알림 전송
-- **ℹ️ INFO**: 기타 모든 로그 → 로그만 기록
+## 🔄 자동 시작 설정
 
-## 시스템 서비스로 실행
+### macOS LaunchAgent
 
-### systemd 서비스 설정
+설치 스크립트가 자동으로 생성하는 파일:
+`~/Library/LaunchAgents/ai.lambda-x.syslog-monitor.plist`
 
-`/etc/systemd/system/syslog-monitor.service` 파일 생성:
+```bash
+# 수동 시작/중지
+launchctl load ~/Library/LaunchAgents/ai.lambda-x.syslog-monitor.plist
+launchctl unload ~/Library/LaunchAgents/ai.lambda-x.syslog-monitor.plist
 
-```ini
+# 상태 확인
+launchctl list | grep syslog-monitor
+```
+
+### Linux Systemd
+
+```bash
+# 서비스 파일 생성
+sudo tee /etc/systemd/system/syslog-monitor.service << EOF
 [Unit]
-Description=Syslog Monitor Service
+Description=AI Syslog Monitor
 After=network.target
 
 [Service]
 Type=simple
-User=syslog
-ExecStart=/usr/local/bin/syslog-monitor -output=/var/log/syslog-monitor.log
+User=root
+ExecStart=/usr/local/bin/syslog-monitor -ai-analysis -system-monitor
 Restart=always
-RestartSec=10
+RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
-```
-
-서비스 등록 및 시작:
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable syslog-monitor
-sudo systemctl start syslog-monitor
-```
-
-## 테스트 가이드
-
-### 🧪 기능 테스트
-
-#### 1. 이메일 알림 테스트
-```bash
-# 기본 2명에게 테스트 이메일
-./syslog-monitor -test-email
-# 예상 결과: ✅ Test email sent successfully to 2 recipients: robot@lambda-x.ai, enfn2001@gmail.com
-
-# 커스텀 여러 명에게 테스트
-./syslog-monitor -test-email -email-to="user1@test.com,user2@test.com,user3@test.com"
-# 예상 결과: ✅ Test email sent successfully to 3 recipients: user1@test.com, user2@test.com, user3@test.com
-```
-
-#### 2. 실시간 로그 감시 테스트
-```bash
-# 터미널 1: 감시 시작
-./syslog-monitor -file=test.log -keywords=error,critical,failed
-
-# 터미널 2: 테스트 로그 추가
-echo "$(date) server01 app: Error loading configuration file" >> test.log
-echo "$(date) server01 db: Critical database connection failed" >> test.log
-
-# 예상 결과:
-# INFO[시간] 📧 Sending ERROR alert to: robot@lambda-x.ai, enfn2001@gmail.com
-# INFO[시간] ✅ Gmail email sent successfully to: robot@lambda-x.ai, enfn2001@gmail.com
-```
-
-#### 3. 필터링 테스트
-```bash
-# 특정 패턴 제외 테스트
-./syslog-monitor -file=test.log -filters="systemd,kernel" -keywords=error
-
-# 키워드 조합 테스트
-./syslog-monitor -file=test.log -keywords="error,critical,failed,warning"
-```
-
-### 📊 성능 테스트
-
-#### 대용량 로그 파일 테스트
-```bash
-# 대용량 파일 생성
-for i in {1..1000}; do 
-  echo "$(date) server01 app: Test log entry $i" >> large_test.log
-done
-
-# 감시 성능 확인
-time ./syslog-monitor -file=large_test.log -keywords=test
-```
-
-#### 다중 수신자 성능 테스트
-```bash
-# 10명에게 동시 전송 테스트
-./syslog-monitor -test-email -email-to="user1@test.com,user2@test.com,user3@test.com,user4@test.com,user5@test.com,user6@test.com,user7@test.com,user8@test.com,user9@test.com,user10@test.com"
-```
-
-## 문제 해결 및 FAQ
-
-### ❌ 이메일 전송 실패
-
-#### 문제: 535 5.7.8 Username and Password not accepted
-```
-ERRO[시간] ❌ Failed to send email alert: 535 5.7.8 Username and Password not accepted
-```
-
-**해결방법:**
-1. Gmail 2단계 인증 활성화 확인
-2. App Password 재생성: https://myaccount.google.com/apppasswords
-3. 올바른 App Password 설정 확인
-
-```bash
-# 테스트로 확인
-./syslog-monitor -test-email -smtp-user=your@gmail.com -smtp-password=correct-app-password
-```
-
-#### 문제: TLS 연결 오류
-```
-ERRO[시간] failed to connect to SMTP server: tls: first record does not look like a TLS handshake
-```
-
-**해결방법:**
-- Gmail SMTP는 자동으로 처리됩니다. 기본 설정 사용:
-```bash
-./syslog-monitor -test-email  # 기본 Gmail 설정 사용
-```
-
-### ⚠️ 파일 접근 문제
-
-#### 권한 문제
-```bash
-# syslog 파일은 보통 root 권한 필요
-sudo ./syslog-monitor -file=/var/log/syslog
-
-# 또는 사용자를 syslog 그룹에 추가
-sudo usermod -a -G syslog $USER
-```
-
-#### 파일 경로 확인
-```bash
-# 시스템별 syslog 위치 확인
-ls -la /var/log/syslog      # Ubuntu/Debian
-ls -la /var/log/messages    # CentOS/RHEL
-ls -la /var/log/system.log  # macOS
-```
-
-### 🔧 성능 최적화
-
-#### inotify 한계 증가
-```bash
-# 현재 한계 확인
-cat /proc/sys/fs/inotify/max_user_watches
-
-# 한계 증가 (root 권한 필요)
-echo 524288 | sudo tee /proc/sys/fs/inotify/max_user_watches
-```
-
-#### 메모리 사용량 확인
-```bash
-# 실행 중 메모리 사용량 모니터링
-ps aux | grep syslog-monitor
-top -p $(pgrep syslog-monitor)
-```
-
-### 🌐 네트워크 문제
-
-#### SMTP 연결 테스트
-```bash
-# Gmail SMTP 서버 연결 확인
-telnet smtp.gmail.com 587
-
-# 방화벽 확인
-sudo iptables -L | grep 587
-```
-
-### 📝 로그 레벨 이해
-
-- **ERROR**: `error`, `err` 키워드 포함
-- **WARNING**: `warn`, `warning` 키워드 포함  
-- **CRITICAL**: `critical`, `fail` 키워드 포함
-- **INFO**: 기타 모든 로그
-
-### 💡 팁과 트릭
-
-#### 환경변수 파일 사용
-```bash
-# .env 파일 생성
-cat > .env << EOF
-export SYSLOG_EMAIL_TO="team@company.com,admin@company.com"
-export SYSLOG_SMTP_USER="alerts@company.com"
-export SYSLOG_SMTP_PASSWORD="app-password-here"
 EOF
 
-# 보안 설정
-chmod 600 .env
-
-# 사용
-source .env && ./syslog-monitor
+# 서비스 활성화
+sudo systemctl enable syslog-monitor
+sudo systemctl start syslog-monitor
+sudo systemctl status syslog-monitor
 ```
 
-#### systemd 서비스 자동 재시작
+## 🔍 문제 해결
+
+### 일반적인 문제
+
+#### 1. 권한 오류
 ```bash
-# 서비스 파일에 재시작 정책 추가
-[Service]
-Restart=always
-RestartSec=10
+# macOS
+sudo chown $(whoami) /var/log/system.log
+# 또는 sudo로 실행
+sudo syslog-monitor -ai-analysis
+
+# Linux
+sudo chmod 644 /var/log/syslog
 ```
 
-## 라이센스
-
-MIT License
-
-## 기여하기
-
-1. Fork the repository
-2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
-
-## 프로젝트 구조
-
-```
-syslog-monitor/
-├── main.go                # 메인 소스코드
-├── go.mod                 # Go 모듈 정의
-├── Makefile              # 빌드 스크립트
-├── email-setup.sh        # 이메일 설정 간편 스크립트
-├── README.md             # 이 문서
-├── test.log              # 테스트용 로그 파일
-├── syslog-monitor        # 빌드된 실행파일
-└── .env                  # 환경변수 파일 (생성 후)
+#### 2. 이메일 전송 실패
+```bash
+# Gmail 앱 비밀번호 확인
+# 2단계 인증 활성화 여부 확인
+# SMTP 설정 테스트
+syslog-monitor -test-email
 ```
 
-## 주요 파일 설명
+#### 3. AI 분석 오류
+```bash
+# 인터넷 연결 확인 (ASN 조회용)
+ping 8.8.8.8
 
-- **`main.go`**: 핵심 로직 (syslog 감시, 이메일 전송, 필터링)
-- **`email-setup.sh`**: 대화형 이메일 설정 스크립트
-- **`Makefile`**: 빌드, 테스트, 정리 명령어
-- **`test.log`**: 기능 테스트용 샘플 로그 파일
+# 로그 파일 접근 권한 확인
+ls -la /var/log/system.log
 
-## 라이센스
+# 간단한 테스트
+./simple-test.sh
+```
 
-MIT License
+#### 4. 메모리 사용량 높음
+```bash
+# 로그 버퍼 크기 조정 (기본: 1000줄)
+# 임계값 조정 (기본: 7.0)
+syslog-monitor -ai-analysis -alert-threshold=8.5
+```
 
-## 기여하기
+### macOS 특화 문제
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Create a Pull Request
+#### 1. 로그 파일 접근
+```bash
+# macOS Big Sur/Monterey 이후
+sudo log stream --predicate 'process == "kernel"' | \
+  syslog-monitor -file=/dev/stdin -ai-analysis
 
-## 연락처
+# 권한 부여
+sudo chmod +r /var/log/system.log
+```
 
-이슈나 질문이 있으시면 GitHub Issues를 통해 연락해주세요.
+#### 2. 온도 모니터링
+```bash
+# istats 설치
+brew install istat-menus
 
-## 버전 히스토리
+# 수동 온도 확인
+istats temp
+```
 
-- **v1.0.0**: 기본 syslog 감시 기능
-- **v1.1.0**: 이메일 알림 기능 추가
-- **v1.2.0**: 여러 명 동시 이메일 알림 지원
-- **v1.3.0**: Gmail SMTP 최적화 및 안정성 개선 
+### 로그 파일 위치
+
+#### macOS
+- 시스템 로그: `/var/log/system.log`
+- 설치 로그: `/var/log/install.log`
+- WiFi 로그: `/var/log/wifi.log`
+- 보안 로그: `/var/log/secure.log`
+
+#### Linux
+- 시스템 로그: `/var/log/syslog` (Ubuntu/Debian)
+- 시스템 로그: `/var/log/messages` (CentOS/RHEL)
+- 인증 로그: `/var/log/auth.log`
+- 커널 로그: `/var/log/kern.log`
+
+## 🎯 성능 최적화
+
+### 권장 설정
+
+```bash
+# 일반 사용 (권장)
+syslog-monitor -ai-analysis -system-monitor
+
+# 고성능 서버
+syslog-monitor -ai-analysis -alert-threshold=8.0 \
+  -keywords="error,critical,failed"
+
+# 보안 중심
+syslog-monitor -ai-analysis -login-watch \
+  -keywords="failed,unauthorized,attack"
+
+# 경량 모니터링
+syslog-monitor -keywords="error,critical" \
+  -filters="debug,info"
+```
+
+### 리소스 사용량
+
+| 구성 | CPU | 메모리 | 디스크 |
+|------|-----|--------|--------|
+| 기본 모니터링 | <5% | 20-50MB | 최소 |
+| AI 분석 | 5-15% | 50-100MB | 낮음 |
+| 시스템 모니터링 | 10-20% | 100-200MB | 보통 |
+| 전체 기능 | 15-25% | 150-300MB | 보통 |
+
+## 📚 추가 리소스
+
+### 설정 예시 모음
+
+```bash
+# 1. 웹 서버 모니터링
+syslog-monitor -file=/var/log/nginx/access.log \
+  -ai-analysis -keywords="error,404,500"
+
+# 2. 데이터베이스 모니터링  
+syslog-monitor -file=/var/log/mysql/error.log \
+  -ai-analysis -log-type=mysql
+
+# 3. 보안 모니터링
+syslog-monitor -file=/var/log/auth.log \
+  -ai-analysis -login-watch
+
+# 4. 개발 환경
+syslog-monitor -file=./app.log \
+  -keywords="error,exception" -output=./filtered.log
+```
+
+### API 연동
+
+ASN 정보 조회에 사용되는 API:
+- **ip-api.com**: 무료, 월 1000회 제한
+- **ipinfo.io**: 유료, 높은 정확도
+- **MaxMind GeoIP**: 로컬 데이터베이스
+
+## 🤝 기여하기
+
+1. **이슈 리포트**: 버그나 기능 요청
+2. **코드 기여**: Pull Request 환영
+3. **문서화**: README 개선사항
+4. **테스트**: 새로운 환경에서의 테스트
+
+## 📄 라이선스
+
+MIT License - 자유롭게 사용, 수정, 배포 가능
+
+## 🔗 링크
+
+- **GitHub**: [프로젝트 저장소]
+- **문서**: [온라인 문서]
+- **이슈 트래킹**: [GitHub Issues]
+
+---
+
+**🎉 AI-Powered Syslog Monitor v2.0**  
+**더 스마트하고, 더 안전하고, 더 강력한 로그 모니터링 솔루션**
+
+**Made with ❤️ by Lambda-X AI Team** 
