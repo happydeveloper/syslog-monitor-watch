@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- 로그 로테이션 서비스 식별자 -->
+    <key>Label</key>
+    <string>com.lambda-x.syslog-monitor.logrotate</string>
+    
+    <!-- 로그 로테이션 스크립트 실행 -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/usr/local/bin/rotate-syslog-logs.sh</string>
+    </array>
+    
+    <!-- 서비스 설명 -->
+    <key>ServiceDescription</key>
+    <string>Lambda-X Syslog Monitor Log Rotation Service</string>
+    
+    <!-- 매일 자정에 실행 -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>0</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+    
+    <!-- 작업 디렉토리 -->
+    <key>WorkingDirectory</key>
+    <string>/usr/local/var/log</string>
+    
+    <!-- 표준 출력 로그 -->
+    <key>StandardOutPath</key>
+    <string>/usr/local/var/log/logrotate.out.log</string>
+    
+    <!-- 표준 에러 로그 -->
+    <key>StandardErrorPath</key>
+    <string>/usr/local/var/log/logrotate.err.log</string>
+    
+    <!-- 환경 변수 -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+    
+    <!-- 시스템 부팅 후 로드 -->
+    <key>RunAtLoad</key>
+    <false/>
+    
+    <!-- 프로세스 우선순위 -->
+    <key>Nice</key>
+    <integer>10</integer>
+</dict>
+</plist>

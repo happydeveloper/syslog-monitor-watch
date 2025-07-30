@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- 서비스 고유 식별자 -->
+    <key>Label</key>
+    <string>com.lambda-x.syslog-monitor</string>
+    
+    <!-- 실행할 프로그램과 옵션 -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/syslog-monitor</string>
+        <string>-system-monitor</string>
+        <string>-ai-analysis</string>
+        <string>-login-watch</string>
+        <string>-periodic-report</string>
+        <string>-report-interval=60</string>
+    </array>
+    
+    <!-- 서비스 설명 -->
+    <key>ServiceDescription</key>
+    <string>Lambda-X AI-Powered System Monitor - 실시간 시스템 모니터링 및 AI 기반 보안 분석</string>
+    
+    <!-- 사용자 로그인 시 자동 시작 -->
+    <key>RunAtLoad</key>
+    <true/>
+    
+    <!-- 프로세스가 종료되면 자동 재시작 -->
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+        <key>Crashed</key>
+        <true/>
+    </dict>
+    
+    <!-- 작업 디렉토리 설정 -->
+    <key>WorkingDirectory</key>
+    <string>/usr/local/bin</string>
+    
+    <!-- 표준 출력 로그 파일 -->
+    <key>StandardOutPath</key>
+    <string>/usr/local/var/log/syslog-monitor.out.log</string>
+    
+    <!-- 표준 에러 로그 파일 -->
+    <key>StandardErrorPath</key>
+    <string>/usr/local/var/log/syslog-monitor.err.log</string>
+    
+    <!-- 환경 변수 설정 -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin</string>
+        <key>HOME</key>
+        <string>/Users/beaker</string>
+        <!-- Gemini API 키는 ~/.syslog-monitor/config.json에서 로드 -->
+    </dict>
+    
+    <!-- 네트워크 연결 시에만 시작 -->
+    <key>LaunchOnlyOnce</key>
+    <false/>
+    
+    <!-- 시스템 부팅 후 지연 시작 (30초) -->
+    <key>StartInterval</key>
+    <integer>30</integer>
+    
+    <!-- 프로세스 우선순위 (nice 값) -->
+    <key>Nice</key>
+    <integer>1</integer>
+    
+    <!-- 리소스 제한 -->
+    <key>SoftResourceLimits</key>
+    <dict>
+        <key>NumberOfFiles</key>
+        <integer>1024</integer>
+        <key>NumberOfProcesses</key>
+        <integer>100</integer>
+    </dict>
+    
+    <!-- 프로세스 종료 시 타임아웃 -->
+    <key>ExitTimeOut</key>
+    <integer>30</integer>
+    
+    <!-- 시스템 로그 레벨 -->
+    <key>Debug</key>
+    <false/>
+    
+    <!-- 루트 권한으로 실행하지 않음 (보안) -->
+    <key>UserName</key>
+    <string>beaker</string>
+    
+    <!-- 프로세스 감시 및 재시작 조건 -->
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+</dict>
+</plist>
