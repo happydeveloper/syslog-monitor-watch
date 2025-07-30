@@ -1,10 +1,28 @@
+/*
+Email Service Module
+==================
+
+Gmail SMTP 최적화 이메일 알림 서비스
+
+주요 기능:
+- Gmail SMTP 서버 자동 감지 및 최적화
+- 다중 수신자 지원 (여러 명에게 동시 전송)
+- STARTTLS 및 SSL/TLS 연결 지원
+- SMTP 인증 및 보안 설정
+- 이메일 전송 실패 시 상세 에러 처리
+
+지원 SMTP 설정:
+- Gmail: smtp.gmail.com:587 (STARTTLS)
+- Gmail SSL: smtp.gmail.com:465 (SSL/TLS)
+- 기타 SMTP 서버 지원
+*/
 package main
 
 import (
-	"crypto/tls"
-	"fmt"
-	"net/smtp"
-	"strings"
+	"crypto/tls" // TLS/SSL 암호화 연결
+	"fmt"        // 형식화된 I/O
+	"net/smtp"   // SMTP 클라이언트
+	"strings"    // 문자열 처리
 )
 
 // EmailService 이메일 전송 서비스

@@ -1,11 +1,39 @@
+/*
+Multi-Format Log Parser Module
+=============================
+
+다양한 로그 포맷을 지원하는 통합 로그 파싱 엔진
+
+지원 로그 포맷:
+- Apache HTTP Server (Common Log Format, Combined Log Format, Error Log)
+- Nginx (Access Log, Error Log)
+- MySQL (Error Log, Slow Query Log, General Log)
+- PostgreSQL (Standard Log, Error Log, Slow Query)
+- Application Logs (JSON, Structured Text)
+
+주요 기능:
+- 자동 로그 포맷 감지
+- 구조화된 로그 데이터 추출
+- HTTP 요청/응답 메트릭 파싱
+- 데이터베이스 쿼리 분석
+- 에러 정보 및 스택 트레이스 추출
+- 성능 메트릭 (응답시간, 처리량) 계산
+
+파싱 출력:
+- 타임스탬프 정규화
+- 로그 레벨 분류
+- 구조화된 필드 추출
+- 에러 상세 정보
+- 성능 관련 메트릭
+*/
 package main
 
 import (
-	"fmt"
-	"regexp"
-	"strconv"
-	"strings"
-	"time"
+	"fmt"     // 형식화된 I/O
+	"regexp"  // 정규식 패턴 매칭
+	"strconv" // 문자열-숫자 변환
+	"strings" // 문자열 처리
+	"time"    // 시간 파싱 및 처리
 )
 
 // LogParser 로그 파서 인터페이스

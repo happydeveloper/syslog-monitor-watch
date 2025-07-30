@@ -1,8 +1,32 @@
-# 🤖 AI-Powered Syslog Monitor v2.0
+# 🤖 AI-Powered Syslog Monitor v2.1
 
 **AI 기반 로그 분석 및 시스템 모니터링 도구**
 
 리눅스와 macOS 시스템의 syslog를 실시간으로 감시하고 **차세대 AI 기반 이상 징후 분석**, 시스템 메트릭 모니터링, **향상된 다중 플랫폼 알림**을 제공하는 최신 모니터링 솔루션입니다.
+
+## 🆕 v2.2 최신 업데이트
+
+### 🤖 **Gemini AI 연동**
+- ✅ **Google Gemini API 통합**: 고급 AI 기반 시스템 진단
+- ✅ **실시간 AI 분석**: 로그 패턴, 보안 위협, 시스템 상태 분석
+- ✅ **전문가 진단**: 자연어 기반 시스템 문제 진단 및 권장사항
+- ✅ **설정 관리**: JSON 기반 설정 파일 및 환경변수 지원
+
+### 🔧 **빌드 오류 수정**
+- ✅ **플래그 변수 스코프 문제 해결**: 전역 플래그 변수 접근 오류 수정
+- ✅ **함수 시그니처 개선**: `NewSyslogMonitor` 함수 매개변수 최적화
+- ✅ **컴파일 오류 완전 해결**: 모든 빌드 오류 수정 완료
+
+### 📦 **빌드 시스템 개선**
+- ✅ **크로스 플랫폼 빌드**: macOS ARM64/Intel 지원
+- ✅ **최적화된 바이너리**: 성능 향상 및 메모리 사용량 최적화
+- ✅ **자동 의존성 관리**: Go 모듈 시스템 완전 지원
+
+### 📊 **주기적 시스템 상태 보고서**
+- ✅ **자동 CPU/메모리 모니터링**: 설정 가능한 간격으로 시스템 상태 이메일 전송
+- ✅ **상세한 시스템 메트릭**: CPU, 메모리, 디스크, 온도, 프로세스 정보 포함
+- ✅ **다중 채널 지원**: 이메일 및 Slack 동시 전송
+- ✅ **시각적 상태 표시**: 상태에 따른 색상 구분 (정상/경고/위험)
 
 ## 🆕 v2.0 새로운 기능
 
@@ -65,32 +89,56 @@
 
 ## ⚡ 빠른 시작
 
-### macOS 사용자 (권장)
+### 자동 설치 스크립트 사용 (권장)
 
 ```bash
 # 1. 저장소 클론
 git clone <repository-url>
-cd syslog-monitor
+cd lambda-x
 
-# 2. v2.0 자동 설치 (권장)
-./install-macos-v2.sh
+# 2. 전체 재빌드 및 설치 (기존 설치 삭제 후 새로 설치)
+./rebuild-install.sh
 
-# 3. 즉시 사용
-syslog-monitor -ai-analysis -system-monitor
+# 또는 macOS 전용 설치
+./install-macos.sh
+
+# 또는 빠른 빌드만
+./quick-build.sh
+```
+
+### 수동 빌드 (v2.1 최신)
+
+```bash
+# 1. 의존성 설치
+go mod tidy
+go mod download
+
+# 2. 빌드 (모든 오류 수정됨)
+go build -o syslog-monitor .
+
+# 3. 실행 테스트
+./syslog-monitor -help
+
+# 4. 설치 (선택사항)
+sudo cp syslog-monitor /usr/local/bin/
+sudo chmod +x /usr/local/bin/syslog-monitor
 ```
 
 ### 수동 설치
 
 ```bash
-# 1. 빌드
-make build-macos         # macOS용
-make build-linux         # Linux용
+# 1. 의존성 설치
+go mod tidy
+go mod download
 
-# 2. 설치
-sudo cp syslog-monitor_* /usr/local/bin/syslog-monitor
+# 2. 빌드
+go build -ldflags="-s -w" -o syslog-monitor
+
+# 3. 설치
+sudo cp syslog-monitor /usr/local/bin/
 sudo chmod +x /usr/local/bin/syslog-monitor
 
-# 3. 실행
+# 4. 실행
 syslog-monitor -help
 ```
 
@@ -202,6 +250,14 @@ syslog-monitor -ai-analysis -login-watch
 # 성능 모니터링
 syslog-monitor -system-monitor -keywords="memory,cpu,disk"
 
+# Gemini AI 연동 고급 분석
+export GEMINI_API_KEY="your-api-key-here"
+syslog-monitor -ai-analysis -system-monitor
+
+# 설정 확인 및 관리
+syslog-monitor -show-config
+syslog-monitor -gemini-api-key="your-api-key" -show-config
+
 # 다중 채널 알림
 syslog-monitor -ai-analysis \
   -email-to="admin@company.com,security@company.com" \
@@ -211,6 +267,15 @@ syslog-monitor -ai-analysis \
 syslog-monitor -keywords="error,failed" \
   -filters="systemd,kernel" \
   -output=./filtered.log
+
+# 주기적 시스템 상태 보고서 (5분마다)
+syslog-monitor -system-monitor -periodic-report -report-interval=5
+
+# 주기적 시스템 상태 보고서 (1시간마다) + 이메일
+syslog-monitor -system-monitor -periodic-report -report-interval=60
+
+# 전체 기능 + 주기적 보고서
+syslog-monitor -ai-analysis -system-monitor -periodic-report -report-interval=30
 ```
 
 ## 🤖 AI 분석 기능
@@ -251,6 +316,112 @@ syslog-monitor -keywords="error,failed" \
 └─────────────────────────────────────┘
 ```
 
+### 🤖 Gemini AI API 설정 (v2.2 신기능)
+
+#### 1. Gemini API 키 발급
+1. **Google AI Studio 접속**: https://makersuite.google.com/app/apikey
+2. **API 키 생성**: "Create API Key" 버튼 클릭
+3. **키 복사**: 생성된 API 키를 안전한 곳에 저장
+
+#### 2. API 키 설정 방법
+
+**방법 1: 명령행에서 직접 설정**
+```bash
+# API 키 설정
+./syslog-monitor -gemini-api-key="your-api-key-here"
+
+# 설정 확인
+./syslog-monitor -show-config
+```
+
+**방법 2: 환경변수 설정**
+```bash
+# 환경변수 설정
+export GEMINI_API_KEY="your-api-key-here"
+
+# 실행
+./syslog-monitor -ai-analysis -system-monitor
+```
+
+**방법 3: 설정 파일 직접 편집**
+```bash
+# 설정 파일 위치
+~/.syslog-monitor/config.json
+
+# 설정 파일 예시
+{
+    "ai_analysis": {
+        "enabled": true,
+        "gemini_api_key": "your-api-key-here",
+        "gemini_model": "gemini-1.5-flash",
+        "alert_threshold": 7.0,
+        "analysis_interval": 30
+    }
+}
+```
+
+#### 3. AI 분석 기능 활성화
+
+```bash
+# 기본 AI 분석 (API 키 없어도 작동)
+./syslog-monitor -ai-analysis
+
+# Gemini API 연동 AI 분석
+export GEMINI_API_KEY="your-api-key-here"
+./syslog-monitor -ai-analysis -system-monitor
+
+# 고급 AI 진단
+./syslog-monitor -ai-analysis -system-monitor -gemini-api-key="your-api-key"
+```
+
+#### 4. AI 진단 예시
+
+**기본 모드 (API 키 없음)**:
+```
+🔬 AI 전문가 진단 결과 (기본 모드)
+==================================
+📊 전반적인 시스템 건강도: 🔴 POOR
+⚠️  발견된 문제점:
+  🔴 메모리 사용률이 매우 높습니다
+
+💡 전문가 권장사항:
+==================
+• 메모리 누수 확인: `ps aux --sort=-%mem`
+• 스왑 사용량 확인: `vm_stat`
+
+💡 Gemini API 키를 설정하면 더 정교한 AI 진단을 받을 수 있습니다.
+```
+
+**Gemini AI 모드 (API 키 설정)**:
+```
+🔬 AI 전문가 진단 결과
+=====================
+📊 전반적인 시스템 건강도: 🔴 CRITICAL
+⚠️  발견된 문제점:
+  🔴 메모리 사용률이 93.8%로 매우 높습니다
+  🟡 CPU 사용률이 52.7%로 높은 편입니다
+
+💡 전문가 권장사항:
+==================
+• 즉시 메모리 정리 작업 수행
+• 불필요한 프로세스 종료: `killall -9 [process_name]`
+• 시스템 재부팅 고려
+• 메모리 누수 프로세스 확인: `ps aux --sort=-%mem | head -10`
+
+🔧 즉시 실행 가능한 명령어:
+==========================
+• 메모리 사용량 확인: `vm_stat`
+• 높은 메모리 사용 프로세스: `ps aux --sort=-%mem | head -5`
+• 시스템 부하 확인: `top -l 1`
+
+📈 성능 최적화 팁:
+==================
+• 정기적인 시스템 재부팅으로 메모리 정리
+• 불필요한 시작 프로그램 비활성화
+• 디스크 정리 및 최적화
+• 네트워크 연결 상태 모니터링
+```
+
 ### AI 분석 설정
 
 ```bash
@@ -262,6 +433,9 @@ syslog-monitor -ai-analysis -log-type=nginx
 
 # AI 분석 결과 로그 저장
 syslog-monitor -ai-analysis -output=./ai-analysis.log
+
+# Gemini API 키 설정 및 AI 분석
+syslog-monitor -ai-analysis -gemini-api-key="your-api-key"
 ```
 
 ## 🖥️ 시스템 모니터링
@@ -290,8 +464,35 @@ syslog-monitor -system-monitor -cpu-threshold=70 -memory-threshold=80
 brew install istat-menus
 syslog-monitor -system-monitor
 
-# 실시간 시스템 상태 보고서
-syslog-monitor -system-monitor -report-interval=300  # 5분마다
+# 주기적 시스템 상태 보고서 (v2.1 신기능)
+syslog-monitor -system-monitor -periodic-report -report-interval=5   # 5분마다
+syslog-monitor -system-monitor -periodic-report -report-interval=30  # 30분마다
+syslog-monitor -system-monitor -periodic-report -report-interval=60  # 1시간마다
+```
+
+### 📊 주기적 시스템 상태 보고서 (v2.1)
+
+새로운 기능으로 설정 가능한 간격으로 시스템 상태를 이메일과 Slack으로 자동 전송합니다.
+
+#### 보고서 포함 내용:
+- **CPU 상태**: 사용률, 사용자/시스템/유휴 비율, 코어 수
+- **메모리 상태**: 총/사용/가용 메모리, 스왑 사용률
+- **디스크 상태**: 각 마운트 포인트별 사용률
+- **온도 정보**: CPU/GPU 온도
+- **시스템 부하**: 1분/5분/15분 평균
+- **프로세스 상태**: 총/실행/대기 프로세스 수
+
+#### 사용 예시:
+```bash
+# 5분마다 시스템 상태 이메일 전송
+./syslog-monitor -system-monitor -periodic-report -report-interval=5
+
+# 1시간마다 Slack으로 시스템 상태 전송
+./syslog-monitor -system-monitor -periodic-report -report-interval=60 \
+  -slack-webhook="https://hooks.slack.com/..."
+
+# 전체 기능 + 주기적 보고서
+./syslog-monitor -ai-analysis -system-monitor -periodic-report -report-interval=30
 ```
 
 ## 📧 알림 설정
@@ -437,22 +638,53 @@ echo "$(date) CRITICAL [security] SQL injection detected" | \
 
 ## ⚙️ 설정 파일
 
-### 자동 생성된 설정 파일
+### 자동 생성된 설정 파일 (v2.2)
 위치: `~/.syslog-monitor/config.json`
 
 ```json
 {
-    "ai_analysis": true,
-    "system_monitoring": true,
-    "log_file": "/var/log/system.log",
-    "alert_threshold": 7.0,
-    "email_alerts": true,
-    "slack_alerts": false,
+    "ai_analysis": {
+        "enabled": true,
+        "gemini_api_key": "",
+        "gemini_model": "gemini-1.5-flash",
+        "alert_threshold": 7.0,
+        "analysis_interval": 30
+    },
+    "system_monitoring": {
+        "enabled": true,
+        "cpu_threshold": 80.0,
+        "memory_threshold": 85.0,
+        "disk_threshold": 90.0,
+        "temperature_threshold": 75.0,
+        "monitoring_interval": 300
+    },
+    "email": {
+        "enabled": true,
+        "smtp_server": "smtp.gmail.com",
+        "smtp_port": 587,
+        "username": "enfn2001@gmail.com",
+        "password": "",
+        "to": ["robot@lambda-x.ai", "enfn2001@gmail.com"],
+        "from": "security@lambda-x.ai"
+    },
+    "slack": {
+        "enabled": false,
+        "webhook_url": "",
+        "channel": "#security",
+        "username": "AI Security Monitor"
+    },
+    "logging": {
+        "log_file": "/var/log/system.log",
+        "output_file": "",
+        "keywords": "",
+        "filters": ""
+    },
     "features": {
         "computer_name_detection": true,
         "ip_classification": true,
         "asn_lookup": true,
-        "real_time_analysis": true
+        "real_time_analysis": true,
+        "expert_diagnosis": true
     }
 }
 ```
@@ -461,6 +693,7 @@ echo "$(date) CRITICAL [security] SQL injection detected" | \
 
 | 변수명 | 설명 | 기본값 |
 |--------|------|--------|
+| `GEMINI_API_KEY` | Gemini AI API 키 | - |
 | `SYSLOG_EMAIL_TO` | 수신자 이메일 (쉼표 구분) | `robot@lambda-x.ai,enfn2001@gmail.com` |
 | `SYSLOG_SMTP_USER` | SMTP 사용자명 | `enfn2001@gmail.com` |
 | `SYSLOG_SMTP_PASSWORD` | SMTP 비밀번호/앱 비밀번호 | 설정됨 |
@@ -486,6 +719,8 @@ syslog-monitor [옵션]
   -ai-analysis          AI 기반 로그 분석 활성화
   -alert-threshold      AI 알림 임계값 (기본: 7.0)
   -log-type string      로그 타입 (auto, apache, nginx, mysql)
+  -gemini-api-key       Gemini AI API 키 설정
+  -show-config          현재 설정 정보 표시
 ```
 
 ### 시스템 모니터링 옵션
@@ -561,6 +796,30 @@ sudo systemctl status syslog-monitor
 ```
 
 ## 🔍 문제 해결
+
+### 빌드 관련 문제 (v2.1 해결됨)
+
+#### 1. 이전 빌드 오류들 (해결됨)
+```bash
+# 이전 오류들 (v2.1에서 모두 해결됨):
+# - undefined: geoMapper
+# - undefined: alertIntervalFlag  
+# - undefined: periodicReportFlag
+# - undefined: reportIntervalFlag
+
+# 현재 상태: 모든 빌드 오류 해결됨 ✅
+go build -o syslog-monitor .  # 성공
+```
+
+#### 2. 새로운 빌드 방법
+```bash
+# 권장 빌드 방법 (v2.1)
+go mod tidy
+go build -o syslog-monitor .
+
+# 또는 최적화된 빌드
+go build -ldflags="-s -w" -o syslog-monitor .
+```
 
 ### 일반적인 문제
 
@@ -715,7 +974,9 @@ MIT License - 자유롭게 사용, 수정, 배포 가능
 
 ---
 
-**🎉 AI-Powered Syslog Monitor v2.0**  
+**🎉 AI-Powered Syslog Monitor v2.1**  
 **더 스마트하고, 더 안전하고, 더 강력한 로그 모니터링 솔루션**
+
+**✅ 모든 빌드 오류 해결됨 | 🚀 성능 최적화 완료 | 🔧 안정성 향상**
 
 **Made with ❤️ by Lambda-X AI Team** 

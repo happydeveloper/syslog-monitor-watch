@@ -1,55 +1,79 @@
+/*
+AI-Powered Log Analysis Engine
+=============================
+
+고급 AI 기반 로그 분석 및 이상 탐지 엔진
+
+주요 기능:
+- 실시간 로그 패턴 분석
+- 머신러닝 기반 이상 탐지
+- 보안 위협 예측 및 분석
+- 시스템 정보 수집 및 ASN 조회
+- 동적 기준선 학습 및 적응
+
+분석 항목:
+- SQL 인젝션 공격 시도
+- 무차별 대입 공격
+- 권한 상승 시도
+- 메모리 누수 패턴
+- 데이터베이스 연결 이슈
+- 비정상적인 트래픽 급증
+*/
 package main
 
 import (
-	"fmt"
-	"math"
-	"regexp"
-	"sort"
-	"strconv"
-	"strings"
-	"time"
-	"os"
-	"net"
-	"net/http"
-	"encoding/json"
-	"io"
+	"fmt"           // 형식화된 I/O
+	"math"          // 수학 함수
+	"regexp"        // 정규식 처리
+	"sort"          // 정렬 알고리즘
+	"strconv"       // 문자열-숫자 변환
+	"strings"       // 문자열 처리
+	"time"          // 시간 처리
+	"os"            // 운영체제 인터페이스
+	"net"           // 네트워크 처리
+	"net/http"      // HTTP 클라이언트
+	"encoding/json" // JSON 인코딩/디코딩
+	"io"            // I/O 원시 기능
 )
 
-// AIAnalyzer AI 기반 로그 분석 구조체
+// AIAnalyzer AI 기반 로그 분석 및 이상 탐지 엔진
+// 실시간으로 로그를 분석하여 보안 위협과 시스템 이상을 감지
 type AIAnalyzer struct {
-	patterns        []AnomalyPattern
-	timeWindow      time.Duration
-	logBuffer       []LogEntry
-	maxBufferSize   int
-	alertThreshold  float64
-	baselineMetrics BaselineMetrics
+	patterns        []AnomalyPattern // 사전 정의된 이상 패턴 목록 (SQL 인젝션, 브루트포스 등)
+	timeWindow      time.Duration    // 분석 시간 윈도우 (기본 5분, 최근 로그만 분석)
+	logBuffer       []LogEntry       // 순환 버퍼로 최근 로그 항목들을 메모리에 보관
+	maxBufferSize   int              // 버퍼 최대 크기 (메모리 사용량 제한, 기본 1000개)
+	alertThreshold  float64          // 알림 임계값 (이상 점수가 이 값 이상이면 알림 발송)
+	baselineMetrics BaselineMetrics  // 동적으로 학습되는 정상 상태 기준선 메트릭
 }
 
-// LogEntry 로그 항목 구조체
+// LogEntry 개별 로그 항목을 나타내는 구조체
+// 원본 로그와 분석된 메타데이터를 함께 저장
 type LogEntry struct {
-	Timestamp time.Time
-	Level     string
-	Service   string
-	Host      string
-	Message   string
-	Raw       string
-	Features  LogFeatures
+	Timestamp time.Time   // 로그 발생 시각
+	Level     string      // 로그 레벨 (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+	Service   string      // 로그를 생성한 서비스명 (sshd, nginx, mysql 등)
+	Host      string      // 로그를 생성한 호스트명
+	Message   string      // 로그 메시지 본문
+	Raw       string      // 원본 로그 라인 (파싱 전 상태)
+	Features  LogFeatures // 추출된 로그 특성 정보 (AI 분석용)
 }
 
-// LogFeatures 로그 특성 분석
+// LogFeatures 로그에서 추출한 다양한 특성들을 저장하는 구조체
+// AI 분석을 위한 피처 엔지니어링 결과물
 type LogFeatures struct {
-	ErrorCount      int
-	WarningCount    int
-	CriticalCount   int
-	IPAddresses     []string
-	UniqueUsers     []string
-	ServiceCalls    []string
-	ResponseTimes   []float64
-	HTTPStatusCodes []int
-	SQLQueries      []string
-	Severity        float64
-	Frequency       float64
-	SystemInfo      SystemInfo  // 새로 추가된 시스템 정보
+	ErrorCount      int       // 에러 관련 키워드 출현 빈도
+	WarningCount    int       // 경고 관련 키워드 출현 빈도
+	CriticalCount   int       // 치명적 오류 관련 키워드 출현 빈도
+	IPAddresses     []string  // 로그에서 추출된 IP 주소 목록
+	UniqueUsers     []string  // 로그에서 추출된 사용자명 목록
+	ServiceCalls    []string  // 서비스 호출 정보 목록
+	ResponseTimes   []float64 // HTTP 응답 시간 목록 (밀리초 단위)
+	HTTPStatusCodes []int     // HTTP 상태 코드 목록 (200, 404, 500 등)
+	SQLQueries      []string  // 추출된 SQL 쿼리 목록 (보안 분석용)
+	Severity        float64   // 계산된 심각도 점수 (0-10 스케일)
+	Frequency       float64   // 로그 발생 빈도 (분당 횟수)
+	SystemInfo      SystemInfo // 시스템 및 네트워크 정보 (IP 지리정보 포함)
 }
 
 // AnomalyPattern 이상 패턴 정의
@@ -81,6 +105,7 @@ type AIAnalysisResult struct {
 	Confidence      float64
 	Timestamp       time.Time
 	SystemInfo      SystemInfo  // 시스템 정보 추가
+	ExpertDiagnosis ExpertDiagnosis // 전문가 진단 결과
 }
 
 // Prediction 예측 결과
@@ -107,6 +132,38 @@ type SystemInfo struct {
 	InternalIPs  []string
 	ExternalIPs  []string
 	ASNData      []ASNInfo
+}
+
+// ServerExpertDiagnosis 서버 전문가 진단 결과
+type ServerExpertDiagnosis struct {
+	ServerHealth     string   // 서버 건강도 (Excellent/Good/Fair/Poor/Critical)
+	PerformanceScore float64  // 성능 점수 (0-100)
+	SecurityStatus   string   // 보안 상태
+	NetworkHealth    string   // 네트워크 건강도
+	Issues           []string // 발견된 이슈들
+	Recommendations  []string // 서버 전문가 권장사항
+	RiskLevel        string   // 위험도 (Low/Medium/High/Critical)
+}
+
+// ComputerExpertDiagnosis 컴퓨터 전문가 진단 결과
+type ComputerExpertDiagnosis struct {
+	HardwareHealth   string   // 하드웨어 건강도
+	SoftwareStatus   string   // 소프트웨어 상태
+	SystemStability  string   // 시스템 안정성
+	ResourceUsage    string   // 리소스 사용량 상태
+	Issues           []string // 발견된 이슈들
+	Recommendations  []string // 컴퓨터 전문가 권장사항
+	MaintenanceNeeded bool    // 유지보수 필요 여부
+}
+
+// ExpertDiagnosis 전문가 진단 결과
+type ExpertDiagnosis struct {
+	ServerExpert    ServerExpertDiagnosis    // 서버 전문가 진단
+	ComputerExpert  ComputerExpertDiagnosis  // 컴퓨터 전문가 진단
+	OverallHealth   string                   // 전체 시스템 건강도
+	CriticalIssues  []string                 // 긴급 이슈 목록
+	MaintenanceTips []string                 // 유지보수 팁
+	PerformanceScore float64                 // 성능 점수 (0-100)
 }
 
 // NewAIAnalyzer AI 분석기 생성
@@ -210,6 +267,9 @@ func (ai *AIAnalyzer) AnalyzeLog(logLine string, parsed map[string]string) *AIAn
 	// 위협 레벨 결정
 	threatLevel := ai.calculateThreatLevel(anomalyScore)
 	
+	// 전문가 진단 수행 (시스템 메트릭이 없는 경우 nil 전달)
+	expertDiagnosis := ai.PerformExpertDiagnosis(entry, features, nil)
+	
 	return &AIAnalysisResult{
 		AnomalyScore:    anomalyScore,
 		ThreatLevel:     threatLevel,
@@ -219,6 +279,7 @@ func (ai *AIAnalyzer) AnalyzeLog(logLine string, parsed map[string]string) *AIAn
 		Confidence:      ai.calculateConfidence(anomalyScore, features),
 		Timestamp:       time.Now(),
 		SystemInfo:      features.SystemInfo,
+		ExpertDiagnosis: expertDiagnosis,
 	}
 }
 
@@ -845,4 +906,493 @@ func (ai *AIAnalyzer) GenerateDetailedAlert(result *AIAnalysisResult, entry LogE
 	alert += fmt.Sprintf("🎯 신뢰도: %.0f%%\n", result.Confidence*100)
 
 	return alert
+}
+
+// PerformExpertDiagnosis 전문가 진단 수행
+func (ai *AIAnalyzer) PerformExpertDiagnosis(entry LogEntry, features LogFeatures, systemMetrics *SystemMetrics) ExpertDiagnosis {
+	serverDiagnosis := ai.performServerExpertDiagnosis(entry, features, systemMetrics)
+	computerDiagnosis := ai.performComputerExpertDiagnosis(entry, features, systemMetrics)
+	
+	overallHealth := ai.calculateOverallHealth(serverDiagnosis, computerDiagnosis)
+	criticalIssues := ai.identifyCriticalIssues(serverDiagnosis, computerDiagnosis)
+	maintenanceTips := ai.generateMaintenanceTips(serverDiagnosis, computerDiagnosis)
+	performanceScore := ai.calculatePerformanceScore(serverDiagnosis, computerDiagnosis)
+	
+	return ExpertDiagnosis{
+		ServerExpert:    serverDiagnosis,
+		ComputerExpert:  computerDiagnosis,
+		OverallHealth:   overallHealth,
+		CriticalIssues:  criticalIssues,
+		MaintenanceTips: maintenanceTips,
+		PerformanceScore: performanceScore,
+	}
+}
+
+// performServerExpertDiagnosis 서버 전문가 진단 수행
+func (ai *AIAnalyzer) performServerExpertDiagnosis(entry LogEntry, features LogFeatures, systemMetrics *SystemMetrics) ServerExpertDiagnosis {
+	// 서버 성능 분석
+	performanceScore := ai.analyzeServerPerformance(features, systemMetrics)
+	serverHealth := ai.determineServerHealth(performanceScore)
+	
+	// 보안 상태 분석
+	securityStatus := ai.analyzeSecurityStatus(entry, features)
+	
+	// 네트워크 건강도 분석
+	networkHealth := ai.analyzeNetworkHealth(features, systemMetrics)
+	
+	// 이슈 식별
+	issues := ai.identifyServerIssues(entry, features, systemMetrics)
+	
+	// 권장사항 생성
+	recommendations := ai.generateServerRecommendations(entry, features, systemMetrics)
+	
+	// 위험도 평가
+	riskLevel := ai.calculateServerRiskLevel(entry, features, systemMetrics)
+	
+	return ServerExpertDiagnosis{
+		ServerHealth:     serverHealth,
+		PerformanceScore: performanceScore,
+		SecurityStatus:   securityStatus,
+		NetworkHealth:    networkHealth,
+		Issues:           issues,
+		Recommendations:  recommendations,
+		RiskLevel:        riskLevel,
+	}
+}
+
+// performComputerExpertDiagnosis 컴퓨터 전문가 진단 수행
+func (ai *AIAnalyzer) performComputerExpertDiagnosis(entry LogEntry, features LogFeatures, systemMetrics *SystemMetrics) ComputerExpertDiagnosis {
+	// 하드웨어 건강도 분석
+	hardwareHealth := ai.analyzeHardwareHealth(systemMetrics)
+	
+	// 소프트웨어 상태 분석
+	softwareStatus := ai.analyzeSoftwareStatus(entry, features)
+	
+	// 시스템 안정성 분석
+	systemStability := ai.analyzeSystemStability(entry, features, systemMetrics)
+	
+	// 리소스 사용량 분석
+	resourceUsage := ai.analyzeResourceUsage(systemMetrics)
+	
+	// 이슈 식별
+	issues := ai.identifyComputerIssues(entry, features, systemMetrics)
+	
+	// 권장사항 생성
+	recommendations := ai.generateComputerRecommendations(entry, features, systemMetrics)
+	
+	// 유지보수 필요성 평가
+	maintenanceNeeded := ai.evaluateMaintenanceNeeds(entry, features, systemMetrics)
+	
+	return ComputerExpertDiagnosis{
+		HardwareHealth:   hardwareHealth,
+		SoftwareStatus:   softwareStatus,
+		SystemStability:  systemStability,
+		ResourceUsage:    resourceUsage,
+		Issues:           issues,
+		Recommendations:  recommendations,
+		MaintenanceNeeded: maintenanceNeeded,
+	}
+}
+
+// analyzeServerPerformance 서버 성능 분석
+func (ai *AIAnalyzer) analyzeServerPerformance(features LogFeatures, systemMetrics *SystemMetrics) float64 {
+	score := 100.0
+	
+	// CPU 사용률 기반 점수 조정
+	if systemMetrics != nil && systemMetrics.CPU.UsagePercent > 80 {
+		score -= 30
+	} else if systemMetrics != nil && systemMetrics.CPU.UsagePercent > 60 {
+		score -= 15
+	}
+	
+	// 메모리 사용률 기반 점수 조정
+	if systemMetrics != nil && systemMetrics.Memory.UsagePercent > 90 {
+		score -= 25
+	} else if systemMetrics != nil && systemMetrics.Memory.UsagePercent > 75 {
+		score -= 10
+	}
+	
+	// 에러율 기반 점수 조정
+	if features.ErrorCount > 10 {
+		score -= 20
+	} else if features.ErrorCount > 5 {
+		score -= 10
+	}
+	
+	// 응답시간 기반 점수 조정
+	if len(features.ResponseTimes) > 0 {
+		avgResponseTime := 0.0
+		for _, rt := range features.ResponseTimes {
+			avgResponseTime += rt
+		}
+		avgResponseTime /= float64(len(features.ResponseTimes))
+		
+		if avgResponseTime > 2000 {
+			score -= 20
+		} else if avgResponseTime > 1000 {
+			score -= 10
+		}
+	}
+	
+	return math.Max(0, score)
+}
+
+// determineServerHealth 서버 건강도 결정
+func (ai *AIAnalyzer) determineServerHealth(performanceScore float64) string {
+	if performanceScore >= 90 {
+		return "Excellent"
+	} else if performanceScore >= 75 {
+		return "Good"
+	} else if performanceScore >= 60 {
+		return "Fair"
+	} else if performanceScore >= 40 {
+		return "Poor"
+	} else {
+		return "Critical"
+	}
+}
+
+// analyzeSecurityStatus 보안 상태 분석
+func (ai *AIAnalyzer) analyzeSecurityStatus(entry LogEntry, features LogFeatures) string {
+	// 보안 관련 키워드 검사
+	securityKeywords := []string{"failed", "unauthorized", "denied", "attack", "injection", "brute"}
+	securityScore := 0
+	
+	for _, keyword := range securityKeywords {
+		if strings.Contains(strings.ToLower(entry.Message), keyword) {
+			securityScore++
+		}
+	}
+	
+	if securityScore >= 3 {
+		return "High Risk"
+	} else if securityScore >= 1 {
+		return "Medium Risk"
+	} else {
+		return "Secure"
+	}
+}
+
+// analyzeNetworkHealth 네트워크 건강도 분석
+func (ai *AIAnalyzer) analyzeNetworkHealth(features LogFeatures, systemMetrics *SystemMetrics) string {
+	// 네트워크 관련 이슈 검사
+	networkIssues := 0
+	
+	if len(features.IPAddresses) > 10 {
+		networkIssues++
+	}
+	
+	if features.Frequency > 100 {
+		networkIssues++
+	}
+	
+	if networkIssues >= 2 {
+		return "Poor"
+	} else if networkIssues >= 1 {
+		return "Fair"
+	} else {
+		return "Good"
+	}
+}
+
+// identifyServerIssues 서버 이슈 식별
+func (ai *AIAnalyzer) identifyServerIssues(entry LogEntry, features LogFeatures, systemMetrics *SystemMetrics) []string {
+	var issues []string
+	
+	if systemMetrics != nil && systemMetrics.CPU.UsagePercent > 80 {
+		issues = append(issues, "높은 CPU 사용률")
+	}
+	
+	if systemMetrics != nil && systemMetrics.Memory.UsagePercent > 90 {
+		issues = append(issues, "메모리 부족")
+	}
+	
+	if features.ErrorCount > 10 {
+		issues = append(issues, "과도한 에러 발생")
+	}
+	
+	if strings.Contains(strings.ToLower(entry.Message), "timeout") {
+		issues = append(issues, "서비스 응답 지연")
+	}
+	
+	return issues
+}
+
+// generateServerRecommendations 서버 권장사항 생성
+func (ai *AIAnalyzer) generateServerRecommendations(entry LogEntry, features LogFeatures, systemMetrics *SystemMetrics) []string {
+	var recommendations []string
+	
+	if systemMetrics != nil && systemMetrics.CPU.UsagePercent > 80 {
+		recommendations = append(recommendations, "CPU 사용률이 높습니다. 불필요한 프로세스를 종료하거나 서버 리소스를 확장하세요.")
+	}
+	
+	if systemMetrics != nil && systemMetrics.Memory.UsagePercent > 90 {
+		recommendations = append(recommendations, "메모리 사용률이 높습니다. 메모리 정리 또는 확장을 고려하세요.")
+	}
+	
+	if features.ErrorCount > 10 {
+		recommendations = append(recommendations, "에러 로그가 많습니다. 애플리케이션 로그를 확인하고 문제를 해결하세요.")
+	}
+	
+	if len(features.IPAddresses) > 10 {
+		recommendations = append(recommendations, "다양한 IP에서 접근이 감지됩니다. 보안 설정을 검토하세요.")
+	}
+	
+	return recommendations
+}
+
+// calculateServerRiskLevel 서버 위험도 계산
+func (ai *AIAnalyzer) calculateServerRiskLevel(entry LogEntry, features LogFeatures, systemMetrics *SystemMetrics) string {
+	riskScore := 0
+	
+	if systemMetrics != nil && systemMetrics.CPU.UsagePercent > 90 {
+		riskScore += 3
+	}
+	
+	if systemMetrics != nil && systemMetrics.Memory.UsagePercent > 95 {
+		riskScore += 3
+	}
+	
+	if features.ErrorCount > 20 {
+		riskScore += 2
+	}
+	
+	if strings.Contains(strings.ToLower(entry.Message), "attack") {
+		riskScore += 4
+	}
+	
+	if riskScore >= 6 {
+		return "Critical"
+	} else if riskScore >= 4 {
+		return "High"
+	} else if riskScore >= 2 {
+		return "Medium"
+	} else {
+		return "Low"
+	}
+}
+
+// analyzeHardwareHealth 하드웨어 건강도 분석
+func (ai *AIAnalyzer) analyzeHardwareHealth(systemMetrics *SystemMetrics) string {
+	if systemMetrics == nil {
+		return "Unknown"
+	}
+	
+	// CPU 온도 체크
+	if systemMetrics.Temperature.CPUTemp > 80 {
+		return "Critical"
+	} else if systemMetrics.Temperature.CPUTemp > 70 {
+		return "Poor"
+	} else if systemMetrics.Temperature.CPUTemp > 60 {
+		return "Fair"
+	} else {
+		return "Good"
+	}
+}
+
+// analyzeSoftwareStatus 소프트웨어 상태 분석
+func (ai *AIAnalyzer) analyzeSoftwareStatus(entry LogEntry, features LogFeatures) string {
+	if features.CriticalCount > 5 {
+		return "Critical"
+	} else if features.ErrorCount > 10 {
+		return "Poor"
+	} else if features.WarningCount > 5 {
+		return "Fair"
+	} else {
+		return "Good"
+	}
+}
+
+// analyzeSystemStability 시스템 안정성 분석
+func (ai *AIAnalyzer) analyzeSystemStability(entry LogEntry, features LogFeatures, systemMetrics *SystemMetrics) string {
+	stabilityScore := 0
+	
+	if systemMetrics != nil && systemMetrics.LoadAverage.Load1Min > 10 {
+		stabilityScore += 2
+	}
+	
+	if features.CriticalCount > 3 {
+		stabilityScore += 3
+	}
+	
+	if features.ErrorCount > 15 {
+		stabilityScore += 2
+	}
+	
+	if stabilityScore >= 5 {
+		return "Unstable"
+	} else if stabilityScore >= 3 {
+		return "Fair"
+	} else {
+		return "Stable"
+	}
+}
+
+// analyzeResourceUsage 리소스 사용량 분석
+func (ai *AIAnalyzer) analyzeResourceUsage(systemMetrics *SystemMetrics) string {
+	if systemMetrics == nil {
+		return "Unknown"
+	}
+	
+	if systemMetrics.CPU.UsagePercent > 90 || systemMetrics.Memory.UsagePercent > 95 {
+		return "Critical"
+	} else if systemMetrics.CPU.UsagePercent > 80 || systemMetrics.Memory.UsagePercent > 85 {
+		return "High"
+	} else if systemMetrics.CPU.UsagePercent > 60 || systemMetrics.Memory.UsagePercent > 70 {
+		return "Moderate"
+	} else {
+		return "Normal"
+	}
+}
+
+// identifyComputerIssues 컴퓨터 이슈 식별
+func (ai *AIAnalyzer) identifyComputerIssues(entry LogEntry, features LogFeatures, systemMetrics *SystemMetrics) []string {
+	var issues []string
+	
+	if systemMetrics != nil && systemMetrics.Temperature.CPUTemp > 75 {
+		issues = append(issues, "CPU 온도가 높습니다")
+	}
+	
+	if systemMetrics != nil && systemMetrics.CPU.UsagePercent > 90 {
+		issues = append(issues, "CPU 사용률이 매우 높습니다")
+	}
+	
+	if systemMetrics != nil && systemMetrics.Memory.UsagePercent > 95 {
+		issues = append(issues, "메모리 사용률이 매우 높습니다")
+	}
+	
+	if features.CriticalCount > 3 {
+		issues = append(issues, "치명적 오류가 발생하고 있습니다")
+	}
+	
+	return issues
+}
+
+// generateComputerRecommendations 컴퓨터 권장사항 생성
+func (ai *AIAnalyzer) generateComputerRecommendations(entry LogEntry, features LogFeatures, systemMetrics *SystemMetrics) []string {
+	var recommendations []string
+	
+	if systemMetrics != nil && systemMetrics.Temperature.CPUTemp > 75 {
+		recommendations = append(recommendations, "CPU 온도가 높습니다. 쿨링 시스템을 점검하고 먼지를 청소하세요.")
+	}
+	
+	if systemMetrics != nil && systemMetrics.CPU.UsagePercent > 90 {
+		recommendations = append(recommendations, "CPU 사용률이 매우 높습니다. 불필요한 프로그램을 종료하세요.")
+	}
+	
+	if systemMetrics != nil && systemMetrics.Memory.UsagePercent > 95 {
+		recommendations = append(recommendations, "메모리 사용률이 매우 높습니다. 메모리 정리를 수행하세요.")
+	}
+	
+	if features.CriticalCount > 3 {
+		recommendations = append(recommendations, "치명적 오류가 발생하고 있습니다. 시스템 로그를 확인하고 문제를 해결하세요.")
+	}
+	
+	return recommendations
+}
+
+// evaluateMaintenanceNeeds 유지보수 필요성 평가
+func (ai *AIAnalyzer) evaluateMaintenanceNeeds(entry LogEntry, features LogFeatures, systemMetrics *SystemMetrics) bool {
+	if systemMetrics != nil && systemMetrics.Temperature.CPUTemp > 80 {
+		return true
+	}
+	
+	if systemMetrics != nil && systemMetrics.CPU.UsagePercent > 95 {
+		return true
+	}
+	
+	if features.CriticalCount > 5 {
+		return true
+	}
+	
+	return false
+}
+
+// calculateOverallHealth 전체 시스템 건강도 계산
+func (ai *AIAnalyzer) calculateOverallHealth(server ServerExpertDiagnosis, computer ComputerExpertDiagnosis) string {
+	serverScore := 0
+	computerScore := 0
+	
+	// 서버 점수 계산
+	switch server.ServerHealth {
+	case "Excellent":
+		serverScore = 5
+	case "Good":
+		serverScore = 4
+	case "Fair":
+		serverScore = 3
+	case "Poor":
+		serverScore = 2
+	case "Critical":
+		serverScore = 1
+	}
+	
+	// 컴퓨터 점수 계산
+	switch computer.HardwareHealth {
+	case "Good":
+		computerScore = 5
+	case "Fair":
+		computerScore = 3
+	case "Poor":
+		computerScore = 2
+	case "Critical":
+		computerScore = 1
+	}
+	
+	totalScore := float64(serverScore + computerScore) / 2.0
+	
+	if totalScore >= 4.5 {
+		return "Excellent"
+	} else if totalScore >= 3.5 {
+		return "Good"
+	} else if totalScore >= 2.5 {
+		return "Fair"
+	} else if totalScore >= 1.5 {
+		return "Poor"
+	} else {
+		return "Critical"
+	}
+}
+
+// identifyCriticalIssues 긴급 이슈 식별
+func (ai *AIAnalyzer) identifyCriticalIssues(server ServerExpertDiagnosis, computer ComputerExpertDiagnosis) []string {
+	var issues []string
+	
+	if server.RiskLevel == "Critical" {
+		issues = append(issues, "서버 위험도가 Critical입니다")
+	}
+	
+	if computer.HardwareHealth == "Critical" {
+		issues = append(issues, "하드웨어 상태가 Critical입니다")
+	}
+	
+	if server.ServerHealth == "Critical" {
+		issues = append(issues, "서버 건강도가 Critical입니다")
+	}
+	
+	return issues
+}
+
+// generateMaintenanceTips 유지보수 팁 생성
+func (ai *AIAnalyzer) generateMaintenanceTips(server ServerExpertDiagnosis, computer ComputerExpertDiagnosis) []string {
+	var tips []string
+	
+	if computer.MaintenanceNeeded {
+		tips = append(tips, "즉시 유지보수가 필요합니다")
+	}
+	
+	if server.RiskLevel == "High" || server.RiskLevel == "Critical" {
+		tips = append(tips, "서버 보안 점검이 필요합니다")
+	}
+	
+	if computer.HardwareHealth == "Poor" || computer.HardwareHealth == "Critical" {
+		tips = append(tips, "하드웨어 점검이 필요합니다")
+	}
+	
+	return tips
+}
+
+// calculatePerformanceScore 성능 점수 계산
+func (ai *AIAnalyzer) calculatePerformanceScore(server ServerExpertDiagnosis, computer ComputerExpertDiagnosis) float64 {
+	return (server.PerformanceScore + 80.0) / 2 // 컴퓨터 점수는 기본 80점으로 가정
 } 

@@ -1,12 +1,39 @@
+/*
+Slack Integration Service Module
+===============================
+
+Slack Incoming Webhooks을 통한 실시간 알림 서비스
+
+주요 기능:
+- Slack 채널로 실시간 알림 전송
+- 보안 이벤트별 맞춤형 메시지 포맷
+- 색상 코드를 통한 심각도 구분
+- 구조화된 필드를 통한 상세 정보 제공
+- AI 분석 결과 시각화
+- 시스템 메트릭 알림
+
+지원 알림 유형:
+- 로그인 성공/실패 (SSH, sudo, 웹)
+- AI 이상 탐지 결과
+- 시스템 리소스 경고
+- 보안 위협 알림
+- 서비스 상태 변경
+
+메시지 포맷:
+- 색상: good(녹색), warning(노랑), danger(빨강)
+- 아이콘: 이모지를 통한 직관적 표시
+- 필드: 키-값 쌍으로 구조화된 정보
+- 타임스탬프: 이벤트 발생 시각 표시
+*/
 package main
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"net/http"
-	"strings"
-	"time"
+	"bytes"         // 바이트 버퍼 처리
+	"encoding/json" // JSON 인코딩/디코딩
+	"fmt"           // 형식화된 I/O
+	"net/http"      // HTTP 클라이언트
+	"strings"       // 문자열 처리
+	"time"          // 시간 처리
 )
 
 // SlackService Slack 메시지 전송 서비스
@@ -69,60 +96,110 @@ func (ss *SlackService) SendMessage(message SlackMessage) error {
 	return nil
 }
 
-// CreateLoginAlert 로그인 알림 메시지 생성
+// CreateLoginAlert 로그인 알림 메시지 생성 (시스템 리소스 정보 포함)
 func (ss *SlackService) CreateLoginAlert(loginInfo map[string]string, parsed map[string]string) SlackMessage {
 	status := loginInfo["status"]
 	var color, title, emoji string
 	var fields []SlackField
 
+	// 기본 로그인 정보 필드 생성
 	switch status {
 	case "accepted":
 		color = SlackColorGood
 		title = "✅ SSH Login Successful"
 		emoji = ":white_check_mark:"
 		fields = []SlackField{
-			{Title: "User", Value: loginInfo["user"], Short: true},
-			{Title: "IP Address", Value: loginInfo["ip"], Short: true},
-			{Title: "Method", Value: loginInfo["method"], Short: true},
-			{Title: "Host", Value: parsed["host"], Short: true},
+			{Title: "👤 User", Value: loginInfo["user"], Short: true},
+			{Title: "🌐 IP Address", Value: loginInfo["ip"], Short: true},
+			{Title: "🔑 Method", Value: loginInfo["method"], Short: true},
+			{Title: "🖥️ Host", Value: parsed["host"], Short: true},
 		}
 	case "failed":
 		color = SlackColorDanger
 		title = "❌ SSH Login Failed"
 		emoji = ":x:"
 		fields = []SlackField{
-			{Title: "User", Value: loginInfo["user"], Short: true},
-			{Title: "IP Address", Value: loginInfo["ip"], Short: true},
-			{Title: "Method", Value: loginInfo["method"], Short: true},
-			{Title: "Host", Value: parsed["host"], Short: true},
+			{Title: "👤 User", Value: loginInfo["user"], Short: true},
+			{Title: "🌐 IP Address", Value: loginInfo["ip"], Short: true},
+			{Title: "🔑 Method", Value: loginInfo["method"], Short: true},
+			{Title: "🖥️ Host", Value: parsed["host"], Short: true},
 		}
 	case "sudo":
 		color = SlackColorWarning
 		title = "⚡ Sudo Command Executed"
 		emoji = ":zap:"
 		fields = []SlackField{
-			{Title: "User", Value: loginInfo["user"], Short: true},
-			{Title: "Host", Value: parsed["host"], Short: true},
-			{Title: "Command", Value: loginInfo["command"], Short: false},
+			{Title: "👤 User", Value: loginInfo["user"], Short: true},
+			{Title: "🖥️ Host", Value: parsed["host"], Short: true},
+			{Title: "⚡ Command", Value: loginInfo["command"], Short: false},
 		}
 	case "web_login":
 		color = SlackColorGood
 		title = "🌐 Web Login Detected"
 		emoji = ":globe_with_meridians:"
 		fields = []SlackField{
-			{Title: "User", Value: loginInfo["user"], Short: true},
-			{Title: "IP Address", Value: loginInfo["ip"], Short: true},
-			{Title: "Host", Value: parsed["host"], Short: true},
+			{Title: "👤 User", Value: loginInfo["user"], Short: true},
+			{Title: "🌐 IP Address", Value: loginInfo["ip"], Short: true},
+			{Title: "🖥️ Host", Value: parsed["host"], Short: true},
 		}
 	default:
 		color = "#36a64f"
 		title = "👤 User Activity"
 		emoji = ":bust_in_silhouette:"
 		fields = []SlackField{
-			{Title: "User", Value: loginInfo["user"], Short: true},
-			{Title: "Host", Value: parsed["host"], Short: true},
-			{Title: "Activity", Value: loginInfo["status"], Short: true},
+			{Title: "👤 User", Value: loginInfo["user"], Short: true},
+			{Title: "🖥️ Host", Value: parsed["host"], Short: true},
+			{Title: "📍 Activity", Value: loginInfo["status"], Short: true},
 		}
+	}
+
+	// 시스템 리소스 정보 추가
+	if cpu, exists := loginInfo["cpu_usage"]; exists && cpu != "" {
+		fields = append(fields, SlackField{Title: "💻 CPU Usage", Value: cpu, Short: true})
+	}
+	if memory, exists := loginInfo["memory_usage"]; exists && memory != "" {
+		fields = append(fields, SlackField{Title: "🧠 Memory Usage", Value: memory, Short: true})
+	}
+	if temp, exists := loginInfo["cpu_temp"]; exists && temp != "" {
+		fields = append(fields, SlackField{Title: "🌡️ CPU Temp", Value: temp, Short: true})
+	}
+	if load, exists := loginInfo["load_avg"]; exists && load != "" {
+		fields = append(fields, SlackField{Title: "⚖️ Load Avg", Value: load, Short: true})
+	}
+
+	// IP 위치 정보 추가
+	if country, exists := loginInfo["ip_country"]; exists && country != "" {
+		fields = append(fields, SlackField{Title: "🏴 Country", Value: country, Short: true})
+	}
+	if city, exists := loginInfo["ip_city"]; exists && city != "" {
+		fields = append(fields, SlackField{Title: "🏙️ City", Value: city, Short: true})
+	}
+	if org, exists := loginInfo["ip_org"]; exists && org != "" {
+		fields = append(fields, SlackField{Title: "🏢 Organization", Value: org, Short: false})
+	}
+	if threat, exists := loginInfo["ip_threat"]; exists && threat != "" {
+		threatEmoji := "🟢"
+		switch threat {
+		case "HIGH":
+			threatEmoji = "🔴"
+		case "MEDIUM":
+			threatEmoji = "🟡"
+		case "LOW":
+			threatEmoji = "🟢"
+		default:
+			threatEmoji = "⚪"
+		}
+		fields = append(fields, SlackField{Title: "⚠️ Threat Level", Value: threatEmoji + " " + threat, Short: true})
+	}
+
+	// 디스크 사용량 정보 추가
+	if diskUsage, exists := loginInfo["disk_usage"]; exists && diskUsage != "" {
+		fields = append(fields, SlackField{Title: "💾 Disk Usage", Value: diskUsage, Short: false})
+	}
+
+	// 타임스탬프 추가
+	if timestamp, exists := loginInfo["timestamp"]; exists && timestamp != "" {
+		fields = append(fields, SlackField{Title: "🕐 Detected At", Value: timestamp, Short: true})
 	}
 
 	attachment := SlackAttachment{
