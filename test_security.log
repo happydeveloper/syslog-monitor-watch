@@ -1,6 +1,0 @@
-2024-01-15 10:31:15 CRITICAL [database] SQL injection attempt from 203.0.113.42 detected: SELECT * FROM users WHERE id = 1 OR 1=1
-2024-01-15 10:32:25 ERROR [web-server] Failed login attempt from 8.8.8.8 for user admin - invalid password  
-2024-01-15 10:33:00 ERROR [system] Out of memory error - heap exhausted, cannot allocate more space from 192.168.1.100
-2024-01-15 10:34:15 WARNING [api-server] High response time detected: 2500ms for endpoint /api/users from 172.16.0.50 SQL injection test from 100.64.0.1: SELECT * FROM users WHERE 1=1 OR 'a'='a'
-2024-07-29 22:35:00 CRITICAL [security] Privilege escalation attempt from 203.0.113.50: sudo su - root unauthorized access detected
-2024-07-29 22:36:00 CRITICAL [database] SQL injection detected from 198.51.100.42: INSERT INTO users VALUES (1,'admin') OR 1=1

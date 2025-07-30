@@ -1,2 +1,0 @@
-2024-07-29 23:00:00 CRITICAL [security] SQL injection detected from 203.0.113.50: SELECT * FROM users WHERE 1=1 OR 'x'='x'
-2024-07-29 23:05:00 CRITICAL [database] Privilege escalation detected from 198.51.100.42: sudo su - root

@@ -1,3 +1,0 @@
-time="2025-07-25 23:10:26" level=info msg="Starting syslog monitor for file: test.log"
-time="2025-07-25 23:10:26" level=info msg="Syslog monitor started. Press Ctrl+C to stop."
-time="2025-07-25 23:10:29" level=info msg="Shutting down syslog monitor..."
