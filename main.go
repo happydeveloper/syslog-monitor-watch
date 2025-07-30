@@ -175,7 +175,17 @@ func NewSyslogMonitor(logFile, outputFile string, filters, keywords []string, em
 
 	// 시스템 모니터링 서비스 초기화 (systemEnabled 플래그가 true인 경우)
 	if systemEnabled {
-		systemMonitor = NewSystemMonitor(DefaultMonitoringInterval) // 5분 간격 모니터링
+		// 정기 보고서 간격 계산
+		reportIntervalDuration := time.Duration(reportInterval) * time.Minute
+		
+		// 알림 서비스가 포함된 시스템 모니터 생성
+		systemMonitor = NewSystemMonitorWithNotifications(
+			DefaultMonitoringInterval, // 5분 간격 모니터링
+			periodicReport,            // 정기 보고서 활성화 여부
+			reportIntervalDuration,    // 보고서 간격
+			emailService,              // 이메일 서비스
+			slackService,              // Slack 서비스
+		)
 	}
 
 	// 지리정보 매핑 서비스 초기화

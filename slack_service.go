@@ -375,4 +375,19 @@ func (ss *SlackService) IsEnabled() bool {
 // GetChannel 설정된 채널 반환
 func (ss *SlackService) GetChannel() string {
 	return ss.config.Channel
+}
+
+// SendSimpleMessage 간단한 텍스트 메시지 전송
+func (ss *SlackService) SendSimpleMessage(text string) error {
+	if !ss.config.Enabled {
+		return fmt.Errorf("Slack service is disabled")
+	}
+	
+	message := SlackMessage{
+		Text:      text,
+		Username:  ss.config.Username,
+		IconEmoji: ":robot_face:",
+	}
+	
+	return ss.SendMessage(message)
 } 

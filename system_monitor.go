@@ -46,6 +46,16 @@ type SystemMonitor struct {
 	thresholds     SystemThresholds
 	history        []SystemMetrics
 	maxHistorySize int
+	
+	// 정기 보고서 및 다운 감지 관련
+	periodicReport    bool          // 정기 보고서 활성화
+	reportInterval    time.Duration // 보고서 전송 간격
+	lastReportTime    time.Time     // 마지막 보고서 전송 시간
+	heartbeatInterval time.Duration // 하트비트 간격
+	lastHeartbeat     time.Time     // 마지막 하트비트 시간
+	isSystemDown      bool          // 시스템 다운 상태
+	emailService      *EmailService // 이메일 서비스
+	slackService      *SlackService // Slack 서비스
 }
 
 // SystemMetrics 시스템 메트릭 구조체
@@ -179,7 +189,24 @@ func NewSystemMonitor(interval time.Duration) *SystemMonitor {
 			SwapPercent:   50.0,
 			InodePercent:  90.0,
 		},
+		// 기본값 설정
+		periodicReport:    false,
+		reportInterval:    60 * time.Minute, // 기본 1시간
+		heartbeatInterval: 5 * time.Minute,  // 기본 5분
+		lastHeartbeat:     time.Now(),
+		isSystemDown:      false,
 	}
+}
+
+// NewSystemMonitorWithNotifications 이메일/Slack 알림이 포함된 시스템 모니터 생성
+func NewSystemMonitorWithNotifications(interval time.Duration, periodicReport bool, reportInterval time.Duration, emailService *EmailService, slackService *SlackService) *SystemMonitor {
+	monitor := NewSystemMonitor(interval)
+	monitor.periodicReport = periodicReport
+	monitor.reportInterval = reportInterval
+	monitor.emailService = emailService
+	monitor.slackService = slackService
+	monitor.lastReportTime = time.Now()
+	return monitor
 }
 
 // Start 시스템 모니터링 시작
@@ -188,13 +215,36 @@ func (sm *SystemMonitor) Start() {
 	sm.collectMetrics()
 	
 	ticker := time.NewTicker(sm.interval)
+	
+	// 정기 보고서 타이머 설정
+	var reportTicker *time.Ticker
+	if sm.periodicReport {
+		reportTicker = time.NewTicker(sm.reportInterval)
+	}
+	
+	// 하트비트 타이머 설정
+	heartbeatTicker := time.NewTicker(sm.heartbeatInterval)
+	
 	go func() {
 		for {
 			select {
 			case <-ticker.C:
+				sm.updateHeartbeat()
 				sm.collectMetrics()
 				sm.checkAlerts()
+				sm.checkSystemHealth()
 				sm.updateHistory()
+				
+			case <-heartbeatTicker.C:
+				sm.checkHeartbeat()
+				
+			case <-func() <-chan time.Time {
+				if reportTicker != nil {
+					return reportTicker.C
+				}
+				return make(chan time.Time) // 비활성화된 채널
+			}():
+				sm.sendPeriodicReport()
 			}
 		}
 	}()
@@ -958,6 +1008,179 @@ func (sm *SystemMonitor) sendAlert(alert SystemAlert) {
 	case sm.alertChannel <- alert:
 	default:
 		// 채널이 가득 차면 무시 (논블로킹)
+	}
+}
+
+// updateHeartbeat 하트비트 업데이트
+func (sm *SystemMonitor) updateHeartbeat() {
+	sm.lastHeartbeat = time.Now()
+	if sm.isSystemDown {
+		sm.isSystemDown = false
+		sm.sendSystemRecoveryAlert()
+	}
+}
+
+// checkHeartbeat 하트비트 체크 (시스템 다운 감지)
+func (sm *SystemMonitor) checkHeartbeat() {
+	timeSinceLastHeartbeat := time.Since(sm.lastHeartbeat)
+	
+	// 하트비트 간격의 2배를 넘으면 시스템 다운으로 간주
+	if timeSinceLastHeartbeat > sm.heartbeatInterval*2 && !sm.isSystemDown {
+		sm.isSystemDown = true
+		sm.sendSystemDownAlert()
+	}
+}
+
+// checkSystemHealth 시스템 건강 상태 체크
+func (sm *SystemMonitor) checkSystemHealth() {
+	// CPU 과부하 체크
+	if sm.metrics.CPU.UsagePercent > 95.0 {
+		sm.sendCriticalAlert("CRITICAL_CPU", fmt.Sprintf("CPU 사용률이 위험 수준입니다: %.1f%%", sm.metrics.CPU.UsagePercent))
+	}
+	
+	// 메모리 부족 체크
+	if sm.metrics.Memory.UsagePercent > 98.0 {
+		sm.sendCriticalAlert("CRITICAL_MEMORY", fmt.Sprintf("메모리 사용률이 위험 수준입니다: %.1f%%", sm.metrics.Memory.UsagePercent))
+	}
+	
+	// 디스크 용량 부족 체크
+	for _, disk := range sm.metrics.Disk {
+		if disk.UsagePercent > 98.0 {
+			sm.sendCriticalAlert("CRITICAL_DISK", fmt.Sprintf("디스크 용량이 부족합니다: %s %.1f%%", disk.Device, disk.UsagePercent))
+		}
+	}
+	
+	// 시스템 로드 과부하 체크
+	if sm.metrics.LoadAverage.Load1Min > float64(runtime.NumCPU())*3.0 {
+		sm.sendCriticalAlert("CRITICAL_LOAD", fmt.Sprintf("시스템 로드가 과도하게 높습니다: %.2f", sm.metrics.LoadAverage.Load1Min))
+	}
+}
+
+// sendPeriodicReport 정기 시스템 상태 보고서 전송
+func (sm *SystemMonitor) sendPeriodicReport() {
+	if sm.emailService == nil && sm.slackService == nil {
+		return
+	}
+	
+	report := sm.GetSystemReport()
+	subject := fmt.Sprintf("[시스템 상태 보고서] %s - %s", 
+		sm.metrics.IPInfo.Hostname, 
+		time.Now().Format("2006-01-02 15:04"))
+	
+	// 이메일 전송
+	if sm.emailService != nil {
+		go func() {
+			if err := sm.emailService.SendEmail(subject, report); err != nil {
+				// 이메일 전송 실패 시 로그만 남김
+				fmt.Printf("⚠️  정기 보고서 이메일 전송 실패: %v\n", err)
+			}
+		}()
+	}
+	
+	// Slack 전송
+	if sm.slackService != nil {
+		// Slack용 간단한 요약 메시지 생성
+		summary := fmt.Sprintf(`📊 시스템 상태 보고서
+🖥️  %s
+⏰ %s
+
+💻 CPU: %.1f%% | 🧠 메모리: %.1f%% | 🌡️  온도: %.1f°C
+⚖️  로드: %.2f | 🔄 프로세스: %d개
+
+상세 정보는 이메일을 확인하세요.`,
+			sm.metrics.IPInfo.Hostname,
+			time.Now().Format("2006-01-02 15:04:05"),
+			sm.metrics.CPU.UsagePercent,
+			sm.metrics.Memory.UsagePercent,
+			sm.metrics.Temperature.CPUTemp,
+			sm.metrics.LoadAverage.Load1Min,
+			sm.metrics.ProcessCount.Total)
+			
+		go func() {
+			if err := sm.slackService.SendSimpleMessage(summary); err != nil {
+				fmt.Printf("⚠️  정기 보고서 Slack 전송 실패: %v\n", err)
+			}
+		}()
+	}
+	
+	sm.lastReportTime = time.Now()
+}
+
+// sendSystemDownAlert 시스템 다운 알림 전송
+func (sm *SystemMonitor) sendSystemDownAlert() {
+	alert := fmt.Sprintf(`🚨 시스템 다운 감지
+=================
+호스트: %s
+시간: %s
+상태: 시스템이 응답하지 않습니다
+
+마지막 하트비트: %s
+경과 시간: %s
+
+즉시 시스템 상태를 확인해주세요!`,
+		sm.metrics.IPInfo.Hostname,
+		time.Now().Format("2006-01-02 15:04:05"),
+		sm.lastHeartbeat.Format("2006-01-02 15:04:05"),
+		time.Since(sm.lastHeartbeat).String())
+	
+	sm.sendEmergencyAlert("🚨 시스템 다운 감지", alert)
+}
+
+// sendSystemRecoveryAlert 시스템 복구 알림 전송
+func (sm *SystemMonitor) sendSystemRecoveryAlert() {
+	alert := fmt.Sprintf(`✅ 시스템 복구 감지
+=================
+호스트: %s
+시간: %s
+상태: 시스템이 정상적으로 복구되었습니다
+
+다운 시간: %s
+
+시스템이 정상 작동을 재개했습니다.`,
+		sm.metrics.IPInfo.Hostname,
+		time.Now().Format("2006-01-02 15:04:05"),
+		time.Since(sm.lastHeartbeat).String())
+	
+	sm.sendEmergencyAlert("✅ 시스템 복구 알림", alert)
+}
+
+// sendCriticalAlert 위험 상황 알림 전송
+func (sm *SystemMonitor) sendCriticalAlert(alertType, message string) {
+	alert := fmt.Sprintf(`🚨 위험 상황 감지
+=================
+유형: %s
+호스트: %s
+시간: %s
+
+메시지: %s
+
+즉시 조치가 필요합니다!`,
+		alertType,
+		sm.metrics.IPInfo.Hostname,
+		time.Now().Format("2006-01-02 15:04:05"),
+		message)
+	
+	sm.sendEmergencyAlert(fmt.Sprintf("🚨 %s", alertType), alert)
+}
+
+// sendEmergencyAlert 긴급 알림 전송 (이메일 + Slack)
+func (sm *SystemMonitor) sendEmergencyAlert(subject, message string) {
+	// 이메일 즉시 전송
+	if sm.emailService != nil {
+		go func() {
+			if err := sm.emailService.SendEmail(subject, message); err != nil {
+				fmt.Printf("❌ 긴급 알림 이메일 전송 실패: %v\n", err)
+			}
+		}()
+	}
+	
+	// Slack 즉시 전송
+	if sm.slackService != nil {
+		go func() {
+			if err := sm.slackService.SendSimpleMessage(message); err != nil {
+				fmt.Printf("❌ 긴급 알림 Slack 전송 실패: %v\n", err)
+			}
+		}()
 	}
 }
 
