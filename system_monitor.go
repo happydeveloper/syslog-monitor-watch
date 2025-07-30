@@ -684,16 +684,17 @@ func (sm *SystemMonitor) collectLoadMetrics() {
 			cmd := exec.Command("uptime")
 			output, err := cmd.Output()
 			if err == nil {
-				// load averages: 1.23 1.45 1.67 형태 파싱
 				line := string(output)
-				if strings.Contains(line, "load average") {
-					parts := strings.Split(line, "load average")
+				// macOS uptime 형식: "load averages: 4.20 4.61 3.85"
+				if strings.Contains(line, "load averages:") {
+					parts := strings.Split(line, "load averages:")
 					if len(parts) == 2 {
-						loadParts := strings.Split(parts[1], ",")
+						loadStr := strings.TrimSpace(parts[1])
+						loadParts := strings.Fields(loadStr)
 						if len(loadParts) >= 3 {
-							load1, _ := strconv.ParseFloat(strings.TrimSpace(loadParts[0]), 64)
-							load5, _ := strconv.ParseFloat(strings.TrimSpace(loadParts[1]), 64)
-							load15, _ := strconv.ParseFloat(strings.TrimSpace(loadParts[2]), 64)
+							load1, _ := strconv.ParseFloat(loadParts[0], 64)
+							load5, _ := strconv.ParseFloat(loadParts[1], 64)
+							load15, _ := strconv.ParseFloat(loadParts[2], 64)
 
 							sm.metrics.LoadAverage = LoadMetrics{
 								Load1Min:  load1,
