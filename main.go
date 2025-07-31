@@ -1331,8 +1331,6 @@ func main() {
 		
 		// 백그라운드 서비스 관련 플래그
 		daemonMode     = flag.Bool("daemon", false, "Run as background daemon service")
-		pidFile        = flag.String("pid-file", "/usr/local/var/run/syslog-monitor.pid", "PID file path for daemon mode")
-		logDir         = flag.String("log-dir", "/usr/local/var/log", "Log directory for daemon mode")
 		installService = flag.Bool("install-service", false, "Install as macOS LaunchAgent service")
 		removeService  = flag.Bool("remove-service", false, "Remove macOS LaunchAgent service")
 		startService   = flag.Bool("start-service", false, "Start the installed service")
@@ -1735,39 +1733,43 @@ Syslog Monitor
 func setupDaemonMode() {
 	fmt.Println("🔧 Setting up daemon mode...")
 	
+	// 기본 경로 설정
+	logDir := "/usr/local/var/log"
+	pidFile := "/usr/local/var/run/syslog-monitor.pid"
+	
 	// 로그 디렉토리 생성
-	if err := os.MkdirAll(*logDir, 0755); err != nil {
+	if err := os.MkdirAll(logDir, 0755); err != nil {
 		fmt.Printf("❌ Failed to create log directory: %v\n", err)
 		os.Exit(1)
 	}
 	
 	// PID 파일 디렉토리 생성
-	pidDir := filepath.Dir(*pidFile)
+	pidDir := filepath.Dir(pidFile)
 	if err := os.MkdirAll(pidDir, 0755); err != nil {
 		fmt.Printf("❌ Failed to create PID directory: %v\n", err)
 		os.Exit(1)
 	}
 	
 	// 이미 실행 중인지 확인
-	if isRunning() {
+	if isRunning(pidFile) {
 		fmt.Println("⚠️  Daemon is already running")
 		os.Exit(1)
 	}
 	
 	// PID 파일 생성
 	pid := os.Getpid()
-	if err := os.WriteFile(*pidFile, []byte(strconv.Itoa(pid)), 0644); err != nil {
+	if err := os.WriteFile(pidFile, []byte(strconv.Itoa(pid)), 0644); err != nil {
 		fmt.Printf("❌ Failed to write PID file: %v\n", err)
 		os.Exit(1)
 	}
 	
 	// 프로세스 종료 시 PID 파일 삭제
 	defer func() {
-		os.Remove(*pidFile)
+		os.Remove(pidFile)
 	}()
 	
 	// 로그 파일 설정
-	logFile := filepath.Join(*logDir, "syslog-monitor.log")
+	logFile := filepath.Join(logDir, "syslog-monitor.log")
 	logOut, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
 		fmt.Printf("❌ Failed to open log file: %v\n", err)
@@ -1781,16 +1783,16 @@ func setupDaemonMode() {
 	
 	fmt.Printf("🚀 Daemon started (PID: %d)\n", pid)
 	fmt.Printf("📝 Log file: %s\n", logFile)
-	fmt.Printf("📋 PID file: %s\n", *pidFile)
+	fmt.Printf("📋 PID file: %s\n", pidFile)
 }
 
 // isRunning 프로세스가 실행 중인지 확인
-func isRunning() bool {
-	if _, err := os.Stat(*pidFile); os.IsNotExist(err) {
+func isRunning(pidFile string) bool {
+	if _, err := os.Stat(pidFile); os.IsNotExist(err) {
 		return false
 	}
 	
-	pidBytes, err := os.ReadFile(*pidFile)
+	pidBytes, err := os.ReadFile(pidFile)
 	if err != nil {
 		return false
 	}
@@ -1869,7 +1871,7 @@ func installLaunchAgent() {
 func removeLaunchAgent() {
 	fmt.Println("🗑️  Removing macOS LaunchAgent service...")
 	
-	// 먼저 서비스 중지
+	// 먼저 서비스 중지 (오류가 발생해도 계속 진행)
 	stopLaunchAgent()
 	
 	homeDir, err := os.UserHomeDir()
@@ -1878,18 +1880,61 @@ func removeLaunchAgent() {
 		os.Exit(1)
 	}
 	
-	plistFile := filepath.Join(homeDir, "Library", "LaunchAgents", "com.lambda-x.syslog-monitor.plist")
-	
-	if err := os.Remove(plistFile); err != nil {
-		if os.IsNotExist(err) {
-			fmt.Println("⚠️  Service is not installed")
-		} else {
-			fmt.Printf("❌ Failed to remove plist file: %v\n", err)
-			os.Exit(1)
-		}
-	} else {
-		fmt.Println("✅ Service removed successfully")
+	// 제거할 plist 파일들 목록
+	plistFiles := []string{
+		filepath.Join(homeDir, "Library", "LaunchAgents", "com.lambda-x.syslog-monitor.plist"),
+		filepath.Join(homeDir, "Library", "LaunchAgents", "com.lambda-x.syslog-monitor.logrotate.plist"),
 	}
+	
+	removedCount := 0
+	errorCount := 0
+	
+	for _, plistFile := range plistFiles {
+		if _, err := os.Stat(plistFile); err == nil {
+			// 파일이 존재하면 제거 시도
+			if err := os.Remove(plistFile); err != nil {
+				fmt.Printf("❌ Failed to remove plist file %s: %v\n", filepath.Base(plistFile), err)
+				errorCount++
+				
+				// 권한 문제인 경우 sudo 제안
+				if os.IsPermission(err) {
+					fmt.Printf("💡 Try manually: sudo rm -f %s\n", plistFile)
+				}
+			} else {
+				fmt.Printf("✅ Removed plist file: %s\n", filepath.Base(plistFile))
+				removedCount++
+			}
+		}
+	}
+	
+	// 추가 정리: 실행 중인 서비스가 있는지 확인
+	cmd := exec.Command("launchctl", "list")
+	if output, err := cmd.Output(); err == nil {
+		outputStr := string(output)
+		if strings.Contains(outputStr, "lambda-x") {
+			fmt.Println("⚠️  Warning: Some Lambda-X services may still be running")
+			fmt.Println("💡 Check with: launchctl list | grep lambda-x")
+		}
+	}
+	
+	// 결과 요약
+	if removedCount > 0 && errorCount == 0 {
+		fmt.Printf("✅ Service removed successfully (%d files)\n", removedCount)
+	} else if removedCount == 0 && errorCount == 0 {
+		fmt.Println("⚠️  Service was not installed or already removed")
+	} else if removedCount > 0 && errorCount > 0 {
+		fmt.Printf("⚠️  Service partially removed (%d success, %d errors)\n", removedCount, errorCount)
+		fmt.Println("💡 Some files may require manual removal")
+	} else {
+		fmt.Printf("❌ Service removal failed (%d errors)\n", errorCount)
+		fmt.Println("💡 Manual cleanup may be required")
+	}
+	
+	// 추가 정리 제안
+	fmt.Println("\n🔧 Additional cleanup suggestions:")
+	fmt.Println("   Check processes: ps aux | grep syslog-monitor")
+	fmt.Println("   Check services:  launchctl list | grep lambda-x")
+	fmt.Println("   Check files:     find ~ -name '*syslog-monitor*' 2>/dev/null")
 }
 
 // startLaunchAgent macOS LaunchAgent 서비스 시작
@@ -1933,16 +1978,112 @@ func stopLaunchAgent() {
 		os.Exit(1)
 	}
 	
-	plistFile := filepath.Join(homeDir, "Library", "LaunchAgents", "com.lambda-x.syslog-monitor.plist")
+	// 중지할 서비스들 목록
+	services := []struct {
+		name     string
+		plistFile string
+		serviceName string
+	}{
+		{
+			name: "main service",
+			plistFile: filepath.Join(homeDir, "Library", "LaunchAgents", "com.lambda-x.syslog-monitor.plist"),
+			serviceName: "com.lambda-x.syslog-monitor",
+		},
+		{
+			name: "log rotation service",
+			plistFile: filepath.Join(homeDir, "Library", "LaunchAgents", "com.lambda-x.syslog-monitor.logrotate.plist"),
+			serviceName: "com.lambda-x.syslog-monitor.logrotate",
+		},
+	}
 	
-	// launchctl unload 명령 실행
-	cmd := exec.Command("launchctl", "unload", plistFile)
-	if output, err := cmd.CombinedOutput(); err != nil {
-		// unload 실패는 이미 중지된 상태일 수 있으므로 경고만 표시
-		fmt.Printf("⚠️  Warning: %v\n", err)
-		fmt.Printf("Output: %s\n", output)
+	stopCount := 0
+	skipCount := 0
+	
+	for _, service := range services {
+		fmt.Printf("Checking %s...\n", service.name)
+		
+		// plist 파일이 존재하는지 확인
+		if _, err := os.Stat(service.plistFile); os.IsNotExist(err) {
+			fmt.Printf("  ⚠️  plist file not found: %s\n", service.name)
+			skipCount++
+			continue
+		}
+		
+		// 서비스가 실제로 로드되어 있는지 확인
+		checkCmd := exec.Command("launchctl", "list", service.serviceName)
+		if err := checkCmd.Run(); err != nil {
+			fmt.Printf("  ⚠️  %s is not running\n", service.name)
+			skipCount++
+			continue
+		}
+		
+		// launchctl unload 명령 실행
+		fmt.Printf("  Stopping %s...\n", service.name)
+		unloadCmd := exec.Command("launchctl", "unload", service.plistFile)
+		if output, err := unloadCmd.CombinedOutput(); err != nil {
+			fmt.Printf("  ⚠️  Warning: failed to unload %s: %v\n", service.name, err)
+			fmt.Printf("  Output: %s\n", string(output))
+			
+			// unload 실패 시 remove 시도
+			fmt.Printf("  Trying alternative method for %s...\n", service.name)
+			removeCmd := exec.Command("launchctl", "remove", service.serviceName)
+			if removeOutput, removeErr := removeCmd.CombinedOutput(); removeErr != nil {
+				fmt.Printf("  ⚠️  Alternative method also failed: %v\n", removeErr)
+				fmt.Printf("  Output: %s\n", string(removeOutput))
+			} else {
+				fmt.Printf("  ✅ %s stopped using alternative method\n", service.name)
+				stopCount++
+			}
+		} else {
+			fmt.Printf("  ✅ %s stopped successfully\n", service.name)
+			stopCount++
+		}
+		
+		// 잠시 대기하여 서비스가 완전히 중지되도록 함
+		time.Sleep(1 * time.Second)
+	}
+	
+	// 실행 중인 프로세스 강제 종료 시도
+	fmt.Println("Checking for running processes...")
+	killCmd := exec.Command("pkill", "-f", "syslog-monitor")
+	if err := killCmd.Run(); err == nil {
+		fmt.Println("  ✅ Terminated running syslog-monitor processes")
+		time.Sleep(2 * time.Second)
+		
+		// 강제 종료가 필요한지 확인
+		checkCmd := exec.Command("pgrep", "-f", "syslog-monitor")
+		if err := checkCmd.Run(); err == nil {
+			fmt.Println("  ⚠️  Some processes still running, trying force kill...")
+			forceKillCmd := exec.Command("pkill", "-9", "-f", "syslog-monitor")
+			if err := forceKillCmd.Run(); err == nil {
+				fmt.Println("  ✅ Force killed remaining processes")
+			}
+		}
 	} else {
-		fmt.Println("✅ Service stopped successfully")
+		fmt.Println("  ⚠️  No running syslog-monitor processes found")
+	}
+	
+	// 결과 요약
+	if stopCount > 0 && skipCount == 0 {
+		fmt.Printf("✅ All services stopped successfully (%d services)\n", stopCount)
+	} else if stopCount > 0 && skipCount > 0 {
+		fmt.Printf("⚠️  Some services stopped (%d stopped, %d skipped)\n", stopCount, skipCount)
+	} else if skipCount > 0 && stopCount == 0 {
+		fmt.Printf("⚠️  No services were running (%d skipped)\n", skipCount)
+	} else {
+		fmt.Println("❌ Failed to stop services")
+	}
+	
+	// 최종 상태 확인
+	fmt.Println("\nFinal status check:")
+	listCmd := exec.Command("launchctl", "list")
+	if output, err := listCmd.Output(); err == nil {
+		outputStr := string(output)
+		if strings.Contains(outputStr, "lambda-x") {
+			fmt.Println("  ⚠️  Some Lambda-X services may still be listed")
+		} else {
+			fmt.Println("  ✅ No Lambda-X services found in launchctl list")
+		}
 	}
 }
 
